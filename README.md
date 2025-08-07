@@ -2,6 +2,9 @@
 
 Ein persönlicher News-Aggregator für kritische Twitter-Beiträge mit KI-gestützter Inhaltsbewertung und automatisierter Tweet-Generierung.
 
+## 🌐 Live-Demo
+**[https://news.2b6.de](https://news.2b6.de)** - News Aggregator Live-Demo
+
 ## 🚀 Quick Start mit Docker
 
 ### Voraussetzungen
