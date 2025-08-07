@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block title %}Artikel Dashboard - News Aggregator{% endblock %}
+{% block page_title %}📄 Artikel Dashboard{% endblock %}
+{% block page_subtitle %}Gesammelte Nachrichten verwalten und bewerten{% endblock %}
+
+{% block page_actions %}
+<div class="btn-group" role="group">
+    <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+        <i class="bi bi-funnel me-1"></i>Filter
+    </button>
+    <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="#" onclick="filterArticles('all')">Alle anzeigen</a></li>
+        <li><a class="dropdown-item" href="#" onclick="filterArticles('telegram')">Nur Telegram</a></li>
+        <li><a class="dropdown-item" href="#" onclick="filterArticles('unrated')">Unbewertet</a></li>
+        <li><a class="dropdown-item" href="#" onclick="filterArticles('high')">Hoch relevant</a></li>
+        <li><a class="dropdown-item" href="#" onclick="filterArticles('twitter')">Twitter-Ready</a></li>
+    </ul>
+    <a href="{{ url_for('telegram.telegram_dashboard') }}" class="btn btn-outline-primary">
+        <i class="bi bi-telegram me-1"></i>Zu Telegram
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Statistics Row -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number">{{ articles|length }}</div>
+            <div class="stat-label">Artikel gesamt</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number">{{ articles|selectattr('relevance_score')|list|length }}</div>
+            <div class="stat-label">Bewertet</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number">{{ articles|selectattr('is_used_for_twitter')|list|length }}</div>
+            <div class="stat-label">Für Twitter</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number">{{ articles|selectattr('source_type', 'equalto', 'telegram')|list|length }}</div>
+            <div class="stat-label">Telegram</div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Filter Bar -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-primary btn-sm active" data-filter="all" onclick="filterArticles('all')">
+                <i class="bi bi-list me-1"></i>Alle
+            </button>
+            <button class="btn btn-outline-info btn-sm" data-filter="telegram" onclick="filterArticles('telegram')">
+                <i class="bi bi-telegram me-1"></i>Telegram
+            </button>
+            <button class="btn btn-outline-warning btn-sm" data-filter="unrated" onclick="filterArticles('unrated')">
+                <i class="bi bi-question-circle me-1"></i>Unbewertet
+            </button>
+            <button class="btn btn-outline-success btn-sm" data-filter="high" onclick="filterArticles('high')">
+                <i class="bi bi-star-fill me-1"></i>Hoch relevant
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" data-filter="twitter" onclick="filterArticles('twitter')">
+                <i class="bi bi-twitter me-1"></i>Twitter-Ready
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Articles List -->
+<div id="articles-container">
+    {% if articles %}
+        {% for article in articles %}
+        <div class="article-card mb-3" 
+             data-source="{{ article.source_type }}" 
+             data-rating="{{ article.relevance_score or 'unrated' }}"
+             data-twitter="{{ 'yes' if article.is_used_for_twitter else 'no' }}">
+            
+            <div class="card">
+                <div class="card-body">
+                    <!-- Article Header -->
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="flex-grow-1">
+                            <div class="mb-2">
+                                <span class="article-source">
+                                    {% if article.source_type == 'telegram' %}
+                                        <i class="bi bi-telegram me-1"></i>Telegram
+                                    {% else %}
+                                        <i class="bi bi-globe me-1"></i>{{ article.source_type|title }}
+                                    {% endif %}
+                                </span>
+                                {% if article.relevance_score %}
+                                <span class="badge bg-{{ 'success' if article.relevance_score == 'high' else 'warning' if article.relevance_score == 'medium' else 'danger' }} ms-2">
+                                    {{ 'Hoch' if article.relevance_score == 'high' else 'Mittel' if article.relevance_score == 'medium' else 'Niedrig' }}
+                                </span>
+                                {% endif %}
+                                {% if article.is_used_for_twitter %}
+                                <span class="badge bg-info ms-2">
+                                    <i class="bi bi-twitter me-1"></i>Twitter
+                                </span>
+                                {% endif %}
+                            </div>
+                            <h5 class="article-title">{{ article.title }}</h5>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                {% if article.url %}
+                                <li><a class="dropdown-item" href="{{ article.url }}" target="_blank">
+                                    <i class="bi bi-box-arrow-up-right me-2"></i>Original öffnen
+                                </a></li>
+                                {% endif %}
+                                <li><a class="dropdown-item" href="#" onclick="markForTwitter('{{ article.id }}')">
+                                    <i class="bi bi-twitter me-2"></i>Für Twitter markieren
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteArticle('{{ article.id }}')">
+                                    <i class="bi bi-trash me-2"></i>Löschen
+                                </a></li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Article Content -->
+                    {% if article.content %}
+                    <div class="article-content mb-3">
+                        <p class="mb-2">{{ article.content[:300] }}{% if article.content|length > 300 %}...</p>
+                        <button class="btn btn-link btn-sm p-0" onclick="toggleFullContent(this)">
+                            Mehr anzeigen
+                        </button>
+                        <div class="full-content d-none">
+                            <p>{{ article.content }}</p>
+                        </div>
+                        {% else %}{{ article.content }}</p>{% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Keywords -->
+                    {% if article.keywords %}
+                    <div class="mb-3">
+                        {% for keyword in article.keywords[:5] %}
+                        <span class="badge bg-light text-dark me-1">#{{ keyword }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Rating Buttons -->
+                    <div class="rating-buttons mb-3">
+                        <button class="rating-btn btn btn-sm btn-outline-success{{ ' active' if article.relevance_score == 'high' else '' }}" 
+                                onclick="rateArticle('{{ article.id }}', 'high')">
+                            <i class="bi bi-star-fill me-1"></i>Hoch relevant
+                            {% if article.relevance_score == 'high' %}<i class="bi bi-check ms-1"></i>{% endif %}
+                        </button>
+                        <button class="rating-btn btn btn-sm btn-outline-warning{{ ' active' if article.relevance_score == 'medium' else '' }}" 
+                                onclick="rateArticle('{{ article.id }}', 'medium')">
+                            <i class="bi bi-star-half me-1"></i>Mittel relevant
+                            {% if article.relevance_score == 'medium' %}<i class="bi bi-check ms-1"></i>{% endif %}
+                        </button>
+                        <button class="rating-btn btn btn-sm btn-outline-danger{{ ' active' if article.relevance_score == 'low' else '' }}" 
+                                onclick="rateArticle('{{ article.id }}', 'low')">
+                            <i class="bi bi-star me-1"></i>Niedrig relevant
+                            {% if article.relevance_score == 'low' %}<i class="bi bi-check ms-1"></i>{% endif %}
+                        </button>
+                    </div>
+
+                    <!-- Article Meta -->
+                    <div class="article-meta d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            <i class="bi bi-calendar me-1"></i>
+                            {{ article.published_at[:16].replace('T', ' ') if article.published_at else 'Kein Datum' }}
+                        </small>
+                        <small class="text-muted">
+                            {% if article.source_name %}
+                                <i class="bi bi-broadcast me-1"></i>{{ article.source_name }}
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-5">
+            <i class="bi bi-file-text text-muted" style="font-size: 4rem;"></i>
+            <h4 class="mt-3 text-muted">Noch keine Artikel gesammelt</h4>
+            <p class="text-muted">Füge Telegram-Channels hinzu und starte eine Synchronisation, um Artikel zu sammeln.</p>
+            <a href="{{ url_for('telegram.telegram_dashboard') }}" class="btn btn-primary">
+                <i class="bi bi-telegram me-1"></i>Telegram Channels verwalten
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Load More Button (if many articles) -->
+{% if articles|length >= 50 %}
+<div class="text-center mt-4">
+    <button class="btn btn-outline-primary" onclick="loadMoreArticles()">
+        <i class="bi bi-arrow-down-circle me-1"></i>Weitere Artikel laden
+    </button>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Article Rating
+async function rateArticle(articleId, rating) {
+    try {
+        const success = await articleManager.rateArticle(articleId, rating);
+        if (success) {
+            // Update UI to show rating
+            const articleCard = document.querySelector(`[data-rating]`);
+            if (articleCard) {
+                articleCard.setAttribute('data-rating', rating);
+            }
+            // Update button states
+            updateRatingButtons(articleId, rating);
+        }
+    } catch (error) {
+        console.error('Rating failed:', error);
+    }
+}
+
+function updateRatingButtons(articleId, rating) {
+    const card = document.querySelector(`[data-rating]`);
+    if (!card) return;
+    
+    const buttons = card.querySelectorAll('.rating-btn');
+    buttons.forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.textContent.toLowerCase().includes(rating)) {
+            btn.classList.add('active');
+        }
+    });
+}
+
+// Article Filtering
+function filterArticles(filter) {
+    const articles = document.querySelectorAll('.article-card');
+    const filterButtons = document.querySelectorAll('[data-filter]');
+
+    // Update active filter button
+    filterButtons.forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('data-filter') === filter) {
+            btn.classList.add('active');
+        }
+    });
+
+    // Filter articles
+    articles.forEach(article => {
+        let show = false;
+        
+        switch(filter) {
+            case 'all':
+                show = true;
+                break;
+            case 'telegram':
+                show = article.dataset.source === 'telegram';
+                break;
+            case 'unrated':
+                show = article.dataset.rating === 'unrated';
+                break;
+            case 'high':
+                show = article.dataset.rating === 'high';
+                break;
+            case 'twitter':
+                show = article.dataset.twitter === 'yes';
+                break;
+        }
+        
+        article.style.display = show ? 'block' : 'none';
+    });
+}
+
+// Toggle full content
+function toggleFullContent(button) {
+    const fullContent = button.nextElementSibling;
+    const isShown = !fullContent.classList.contains('d-none');
+    
+    if (isShown) {
+        fullContent.classList.add('d-none');
+        button.textContent = 'Mehr anzeigen';
+    } else {
+        fullContent.classList.remove('d-none');
+        button.textContent = 'Weniger anzeigen';
+    }
+}
+
+// Mark for Twitter
+async function markForTwitter(articleId) {
+    try {
+        const response = await newsApp.apiCall(`/articles/mark-twitter/${articleId}`, {
+            method: 'POST'
+        });
+        
+        if (response.success) {
+            newsApp.showNotification('Artikel für Twitter markiert', 'success');
+            // Update UI
+            const card = document.querySelector('.article-card');
+            card.setAttribute('data-twitter', 'yes');
+        }
+    } catch (error) {
+        newsApp.showNotification('Fehler beim Markieren: ' + error.message, 'danger');
+    }
+}
+
+// Delete Article
+async function deleteArticle(articleId) {
+    if (!confirm('Artikel wirklich löschen?')) return;
+    
+    try {
+        const response = await newsApp.apiCall(`/articles/delete/${articleId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.success) {
+            newsApp.showNotification('Artikel gelöscht', 'success');
+            // Remove from UI
+            const articleCard = event.target.closest('.article-card');
+            articleCard.remove();
+        }
+    } catch (error) {
+        newsApp.showNotification('Fehler beim Löschen: ' + error.message, 'danger');
+    }
+}
+
+// Load more articles (placeholder)
+function loadMoreArticles() {
+    newsApp.showNotification('Pagination wird noch implementiert', 'info');
+}
+</script>
+{% endblock %}

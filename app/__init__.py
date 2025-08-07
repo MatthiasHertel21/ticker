@@ -11,10 +11,18 @@ def create_app():
     config = get_config()
     app.config.from_object(config)
     
-    # Basis-Route für Health Check
-    @app.route('/health')
-    def health_check():
-        return {'status': 'healthy', 'service': 'news-aggregator'}, 200
+    # Enable auto-reload for development
+    import os
+    if app.config.get('ENV') == 'development' or os.getenv('FLASK_ENV') == 'development':
+        app.config['DEBUG'] = True
+        app.config['TEMPLATES_AUTO_RELOAD'] = True
+        app.jinja_env.auto_reload = True
+    
+    # Register all application routes
+    from app.routes import register_routes
+    register_routes(app)
+    
+    return app
     
     # Basis-Route
     @app.route('/')

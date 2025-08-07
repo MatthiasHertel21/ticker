@@ -9,6 +9,8 @@ services:
     volumes:
       - ./data:/app/data
       - ./app:/app/app:ro
+      - ./app/templates:/app/app/templates:ro
+      - ./app/static:/app/app/static:ro
     environment:
       - FLASK_ENV=development
       - FLASK_APP=run.py

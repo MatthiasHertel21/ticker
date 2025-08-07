@@ -115,14 +115,24 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# Environments - WICHTIG: Credentials werden NICHT versioniert!
 .env
+.env.local
+.env.production
+.env.staging
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Sensitive files - Zusätzliche Sicherheit
+credentials.json
+secrets.txt
+*.key
+*.pem
+*.p12
 
 # Spyder project settings
 .spyderproject

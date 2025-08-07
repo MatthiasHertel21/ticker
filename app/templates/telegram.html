@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}Telegram Channels - News Aggregator{% endblock %}
+{% block page_title %}📱 Telegram Channels{% endblock %}
+{% block page_subtitle %}Verwalte deine Telegram-Nachrichtenquellen{% endblock %}
+
+{% block page_actions %}
+<button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addChannelModal">
+    <i class="bi bi-plus-circle me-1"></i>Channel hinzufügen
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- Statistics Row -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number">{{ channels|length }}</div>
+            <div class="stat-label">Channels aktiv</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number">{{ channels.values()|selectattr('is_active')|list|length }}</div>
+            <div class="stat-label">Online</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number">0</div>
+            <div class="stat-label">Heute gesammelt</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number">{{ channels.values()|sum(attribute='last_message_id', start=0) }}</div>
+            <div class="stat-label">Nachrichten IDs</div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="card-title">
+                    <i class="bi bi-arrow-clockwise text-primary me-2"></i>Synchronisation
+                </h5>
+                <p class="card-text text-muted">Überprüfe alle Channels auf neue Nachrichten</p>
+                <button class="btn btn-primary" onclick="performManualSync(this)">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Jetzt synchronisieren
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="card-title">
+                    <i class="bi bi-shield-check text-success me-2"></i>Bot Status
+                </h5>
+                <p class="card-text text-muted">Teste die Verbindung zu deinem Telegram Bot</p>
+                <button class="btn btn-success" onclick="performBotTest(this)">
+                    <i class="bi bi-shield-check me-1"></i>Verbindung testen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Channels List -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-list me-2"></i>Konfigurierte Channels
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if channels %}
+            {% for source_id, channel in channels.items() %}
+            <div class="card mb-3 article-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center mb-2">
+                                <h5 class="card-title mb-0 me-3">{{ channel.name }}</h5>
+                                <span class="badge bg-{{ 'success' if channel.is_active else 'secondary' }}">
+                                    {{ 'Aktiv' if channel.is_active else 'Inaktiv' }}
+                                </span>
+                            </div>
+                            <p class="card-text">
+                                <strong>@{{ channel.channel_username }}</strong>
+                                <br>
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar me-1"></i>Hinzugefügt: {{ channel.added_at[:10] }}
+                                    {% if channel.last_checked %}
+                                    <i class="bi bi-clock ms-3 me-1"></i>Zuletzt geprüft: {{ channel.last_checked[:16].replace('T', ' ') }}
+                                    {% endif %}
+                                </small>
+                            </p>
+                            {% if channel.keywords %}
+                            <div class="mb-2">
+                                <small class="text-muted">Keywords:</small>
+                                {% for keyword in channel.keywords %}
+                                <span class="badge bg-light text-dark me-1">{{ keyword }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            {% if channel.exclude_keywords %}
+                            <div class="mb-2">
+                                <small class="text-muted">Ausschließen:</small>
+                                {% for keyword in channel.exclude_keywords %}
+                                <span class="badge bg-danger me-1">{{ keyword }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-outline-primary btn-sm" 
+                                        onclick="editChannel('{{ source_id }}')" 
+                                        data-bs-toggle="tooltip" 
+                                        title="Channel bearbeiten">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" 
+                                        onclick="removeChannel('{{ source_id }}')" 
+                                        data-bs-toggle="tooltip" 
+                                        title="Channel entfernen">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-telegram text-muted" style="font-size: 4rem;"></i>
+                <h4 class="mt-3 text-muted">Noch keine Channels konfiguriert</h4>
+                <p class="text-muted">Füge deinen ersten Telegram-Channel hinzu, um zu beginnen.</p>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addChannelModal">
+                    <i class="bi bi-plus-circle me-1"></i>Ersten Channel hinzufügen
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Channel Modal -->
+<div class="modal fade" id="addChannelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-plus-circle me-2"></i>Neuen Channel hinzufügen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addChannelForm">
+                    <div class="mb-3">
+                        <label for="channelUsername" class="form-label">Channel Username</label>
+                        <div class="input-group">
+                            <span class="input-group-text">@</span>
+                            <input type="text" class="form-control" id="channelUsername" 
+                                   placeholder="channelname" required>
+                        </div>
+                        <div class="form-text">Username ohne @ eingeben (z.B. reitschuster_de)</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="keywords" class="form-label">Keywords (optional)</label>
+                        <input type="text" class="form-control" id="keywords" 
+                               placeholder="Keyword1, Keyword2, Keyword3">
+                        <div class="form-text">Komma-getrennte Keywords für Filterung</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="excludeKeywords" class="form-label">Ausschließen (optional)</label>
+                        <input type="text" class="form-control" id="excludeKeywords" 
+                               placeholder="Spam, Werbung, Advertisement">
+                        <div class="form-text">Nachrichten mit diesen Wörtern werden ignoriert</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="addChannel()">
+                    <i class="bi bi-plus-circle me-1"></i>Channel hinzufügen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Add Channel
+async function addChannel() {
+    const username = document.getElementById('channelUsername').value.trim();
+    const keywords = document.getElementById('keywords').value.split(',').map(k => k.trim()).filter(k => k);
+    const excludeKeywords = document.getElementById('excludeKeywords').value.split(',').map(k => k.trim()).filter(k => k);
+    
+    if (!username) {
+        newsApp.showNotification('Bitte gib einen Channel-Username ein', 'warning');
+        return;
+    }
+    
+    const button = event.target;
+    newsApp.showLoading(button, 'Hinzufügen...');
+    
+    try {
+        const success = await telegramManager.addChannel({
+            channel_username: username,
+            keywords: keywords,
+            exclude_keywords: excludeKeywords
+        });
+        
+        if (success) {
+            // Close modal and reload page
+            bootstrap.Modal.getInstance(document.getElementById('addChannelModal')).hide();
+            setTimeout(() => location.reload(), 500);
+        }
+    } catch (error) {
+        console.error('Add channel failed:', error);
+    } finally {
+        newsApp.hideLoading(button);
+    }
+}
+
+// Remove Channel
+async function removeChannel(sourceId) {
+    if (!confirm('Channel wirklich entfernen?')) return;
+    
+    try {
+        const success = await telegramManager.removeChannel(sourceId);
+        if (success) {
+            setTimeout(() => location.reload(), 500);
+        }
+    } catch (error) {
+        console.error('Remove channel failed:', error);
+    }
+}
+
+// Edit Channel (placeholder)
+function editChannel(sourceId) {
+    newsApp.showNotification('Channel-Bearbeitung wird noch implementiert', 'info');
+}
+
+// Manual Sync
+async function performManualSync(button) {
+    newsApp.showLoading(button, 'Synchronisiere...');
+    try {
+        await telegramManager.manualSync();
+        setTimeout(() => location.reload(), 1000);
+    } finally {
+        newsApp.hideLoading(button);
+    }
+}
+
+// Bot Test
+async function performBotTest(button) {
+    newsApp.showLoading(button, 'Teste...');
+    try {
+        await telegramManager.testBot();
+    } finally {
+        newsApp.hideLoading(button);
+    }
+}
+
+// Form submission
+document.getElementById('addChannelForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    addChannel();
+});
+</script>
+{% endblock %}
