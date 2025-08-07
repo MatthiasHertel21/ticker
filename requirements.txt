@@ -1,0 +1,29 @@
+# Flask Core
+Flask==2.3.3
+Flask-WTF==1.1.1
+
+# Background Tasks
+celery==5.3.1
+redis==4.6.0
+
+# JSON Data Handling
+jsonschema==4.19.0
+
+# Web Scraping
+requests==2.31.0
+beautifulsoup4==4.12.2
+feedparser==6.0.10
+
+# Telegram Bot
+python-telegram-bot==20.4
+
+# OpenAI (später hinzufügen)
+# openai==0.27.8
+
+# Development Tools
+python-dotenv==1.0.0
+gunicorn==21.2.0
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2023.3

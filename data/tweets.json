@@ -1,0 +1,14 @@
+{
+  "tweets": {},
+  "metadata": {
+    "version": "1.0",
+    "created_at": "2025-08-07T00:00:00Z",
+    "last_updated": "2025-08-07T00:00:00Z",
+    "total_count": 0
+  },
+  "templates": {
+    "default": "🔥 {title}\n\n{summary}\n\n{url}",
+    "critical": "⚠️ {title}\n\n{summary}\n\n📖 {url}",
+    "analysis": "📊 {title}\n\n{analysis}\n\n{url}"
+  }
+}

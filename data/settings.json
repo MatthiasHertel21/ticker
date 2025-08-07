@@ -1,0 +1,27 @@
+{
+  "app": {
+    "version": "1.0.0",
+    "mobile_first": true,
+    "debug": true
+  },
+  "scraping": {
+    "interval_minutes": 30,
+    "max_articles_per_source": 50,
+    "cleanup_days": 30
+  },
+  "ai": {
+    "model": "gpt-3.5-turbo",
+    "relevance_threshold": 0.7,
+    "sentiment_enabled": true,
+    "auto_tagging": true
+  },
+  "ui": {
+    "articles_per_page": 20,
+    "swipe_sensitivity": 0.3,
+    "auto_refresh": false
+  },
+  "notifications": {
+    "enabled": false,
+    "high_relevance_only": true
+  }
+}

@@ -1,0 +1,49 @@
+flask==2.3.3
+gunicorn==21.2.0
+redis==4.6.0
+celery==5.3.1
+
+# JSON Data Handling
+jsonschema==4.19.0
+
+# Forms & Security
+flask-wtf==1.1.1
+wtforms==3.0.1
+werkzeug==2.3.6
+
+# Web Scraping
+requests==2.31.0
+beautifulsoup4==4.12.2
+scrapy==2.10.1
+feedparser==6.0.10
+lxml==4.9.3
+
+# Telegram & Twitter APIs
+python-telegram-bot==20.4
+tweepy==4.14.0
+
+# AI & ML
+openai==0.27.8
+nltk==3.8.1
+textblob==0.17.1
+
+# Utilities
+python-dotenv==1.0.0
+click==8.1.6
+python-dateutil==2.8.2
+pytz==2023.3
+validators==0.21.2
+
+# Image Processing
+pillow==10.0.0
+
+# Caching & Performance
+flask-caching==2.0.2
+
+# Development & Testing
+pytest==7.4.0
+pytest-cov==4.1.0
+pytest-flask==1.2.0
+
+# HTTP & URL utilities
+urllib3==2.0.4

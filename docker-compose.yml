@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  webapp:
+    build: .
+    container_name: ticker_webapp
+    ports:
+      - "5020:5020"
+    volumes:
+      - ./data:/app/data
+      - ./app:/app/app:ro
+    environment:
+      - FLASK_ENV=development
+      - FLASK_APP=run.py
+      - DATA_DIR=/app/data
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - ticker_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ticker_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - ticker_network
+    command: redis-server --appendonly yes
+
+  celery:
+    build: .
+    container_name: ticker_celery
+    command: celery -A app.celery worker --loglevel=info
+    volumes:
+      - ./data:/app/data
+      - ./app:/app/app:ro
+    environment:
+      - FLASK_ENV=development
+      - DATA_DIR=/app/data
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - ticker_network
+
+  celery-beat:
+    build: .
+    container_name: ticker_celery_beat
+    command: celery -A app.celery beat --loglevel=info
+    volumes:
+      - ./data:/app/data
+      - ./app:/app/app:ro
+    environment:
+      - FLASK_ENV=development
+      - DATA_DIR=/app/data
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - ticker_network
+
+volumes:
+  redis_data:
+
+networks:
+  ticker_network:
+    driver: bridge
