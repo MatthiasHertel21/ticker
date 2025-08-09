@@ -1,343 +1,425 @@
 {% extends "base.html" %}
 
-{% block title %}Artikel Dashboard - News Aggregator{% endblock %}
-{% block page_title %}📄 Artikel Dashboard{% endblock %}
-{% block page_subtitle %}Gesammelte Nachrichten verwalten und bewerten{% endblock %}
+{% block title %}News ({{ articles|length }}){% endblock %}
 
-{% block page_actions %}
-<div class="btn-group" role="group">
-    <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
-        <i class="bi bi-funnel me-1"></i>Filter
-    </button>
-    <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="#" onclick="filterArticles('all')">Alle anzeigen</a></li>
-        <li><a class="dropdown-item" href="#" onclick="filterArticles('telegram')">Nur Telegram</a></li>
-        <li><a class="dropdown-item" href="#" onclick="filterArticles('unrated')">Unbewertet</a></li>
-        <li><a class="dropdown-item" href="#" onclick="filterArticles('high')">Hoch relevant</a></li>
-        <li><a class="dropdown-item" href="#" onclick="filterArticles('twitter')">Twitter-Ready</a></li>
-    </ul>
-    <a href="{{ url_for('telegram.telegram_dashboard') }}" class="btn btn-outline-primary">
-        <i class="bi bi-telegram me-1"></i>Zu Telegram
-    </a>
-</div>
-{% endblock %}
+{% block page_subtitle %}{% endblock %}
+
+{% block page_header %}{% endblock %}
 
 {% block content %}
-<!-- Statistics Row -->
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-number">{{ articles|length }}</div>
-            <div class="stat-label">Artikel gesamt</div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-number">{{ articles|selectattr('relevance_score')|list|length }}</div>
-            <div class="stat-label">Bewertet</div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-number">{{ articles|selectattr('is_used_for_twitter')|list|length }}</div>
-            <div class="stat-label">Für Twitter</div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-number">{{ articles|selectattr('source_type', 'equalto', 'telegram')|list|length }}</div>
-            <div class="stat-label">Telegram</div>
-        </div>
-    </div>
-</div>
+<style>
+/* Override content-area padding for this page */
+.content-area {
+    padding: 0 !important;
+}
+</style>
 
-<!-- Quick Filter Bar -->
-<div class="card mb-4">
-    <div class="card-body">
-        <div class="d-flex flex-wrap gap-2">
-            <button class="btn btn-outline-primary btn-sm active" data-filter="all" onclick="filterArticles('all')">
-                <i class="bi bi-list me-1"></i>Alle
-            </button>
-            <button class="btn btn-outline-info btn-sm" data-filter="telegram" onclick="filterArticles('telegram')">
-                <i class="bi bi-telegram me-1"></i>Telegram
-            </button>
-            <button class="btn btn-outline-warning btn-sm" data-filter="unrated" onclick="filterArticles('unrated')">
-                <i class="bi bi-question-circle me-1"></i>Unbewertet
-            </button>
-            <button class="btn btn-outline-success btn-sm" data-filter="high" onclick="filterArticles('high')">
-                <i class="bi bi-star-fill me-1"></i>Hoch relevant
-            </button>
-            <button class="btn btn-outline-secondary btn-sm" data-filter="twitter" onclick="filterArticles('twitter')">
-                <i class="bi bi-twitter me-1"></i>Twitter-Ready
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Articles List -->
-<div id="articles-container">
-    {% if articles %}
+<div class="container-fluid px-0" style="margin: 0; padding: 0;">
+    
+    <!-- Articles Grid -->
+    <div class="row g-0" style="margin: 0;">
         {% for article in articles %}
-        <div class="article-card mb-3" 
-             data-source="{{ article.source_type }}" 
-             data-rating="{{ article.relevance_score or 'unrated' }}"
-             data-twitter="{{ 'yes' if article.is_used_for_twitter else 'no' }}">
-            
-            <div class="card">
-                <div class="card-body">
-                    <!-- Article Header -->
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div class="flex-grow-1">
-                            <div class="mb-2">
-                                <span class="article-source">
-                                    {% if article.source_type == 'telegram' %}
-                                        <i class="bi bi-telegram me-1"></i>Telegram
-                                    {% else %}
-                                        <i class="bi bi-globe me-1"></i>{{ article.source_type|title }}
-                                    {% endif %}
-                                </span>
-                                {% if article.relevance_score %}
-                                <span class="badge bg-{{ 'success' if article.relevance_score == 'high' else 'warning' if article.relevance_score == 'medium' else 'danger' }} ms-2">
-                                    {{ 'Hoch' if article.relevance_score == 'high' else 'Mittel' if article.relevance_score == 'medium' else 'Niedrig' }}
-                                </span>
+        {% if article.relevance_score != 'spam' %}
+        <div class="col-12">
+            <div class="article-card mb-3" data-article-id="{{ article.id }}">
+                <div class="article-body">
+                    <!-- Article Header with Date, Channel, Age -->
+                    <div class="d-flex justify-content-between align-items-start mb-0 p-3 bg-primary bg-opacity-10">
+                        <div class="article-meta flex-grow-1">
+                            <div class="d-flex align-items-start gap-2 mb-0">
+                                {% if article.url %}
+                                <a href="{{ article.url }}" target="_blank" class="text-decoration-none">
+                                    <span class="badge bg-primary">{{ (article.source or article.channel) | clean_channel_name }}</span>
+                                </a>
+                                {% else %}
+                                <span class="badge bg-primary">{{ (article.source or article.channel) | clean_channel_name }}</span>
                                 {% endif %}
-                                {% if article.is_used_for_twitter %}
-                                <span class="badge bg-info ms-2">
-                                    <i class="bi bi-twitter me-1"></i>Twitter
-                                </span>
+                                {% if article.message_age %}
+                                <span class="badge bg-secondary">{{ article.message_age | shorten_time_tag }}</span>
                                 {% endif %}
                             </div>
-                            <h5 class="article-title">{{ article.title }}</h5>
                         </div>
-                        <div class="dropdown">
-                            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="dropdown">
-                                <i class="bi bi-three-dots-vertical"></i>
+                        
+                        <!-- Rating Buttons -->
+                        <div class="rating-buttons-container">
+                            <button class="btn btn-sm btn-outline-primary {{ 'active' if article.relevance_score == 'favorite' else '' }}" 
+                                    onclick="updateRating('{{ article.id }}', 'favorite', this)" 
+                                    title="Als Favorit markieren">
+                                <i class="bi bi-heart-fill"></i>
+                            </button><!--
+                            --><button class="btn btn-sm btn-outline-danger {{ 'active' if article.relevance_score == 'spam' else '' }}" 
+                                    onclick="updateRating('{{ article.id }}', 'spam', this)" 
+                                    title="Als Spam markieren">
+                                <i class="bi bi-trash-fill"></i>
+                            </button><!--
+                            --><button class="btn btn-sm btn-outline-secondary" 
+                                    onclick="deleteArticle('{{ article.id }}', this)" 
+                                    title="Artikel löschen">
+                                <i class="bi bi-x-lg"></i>
                             </button>
-                            <ul class="dropdown-menu">
-                                {% if article.url %}
-                                <li><a class="dropdown-item" href="{{ article.url }}" target="_blank">
-                                    <i class="bi bi-box-arrow-up-right me-2"></i>Original öffnen
-                                </a></li>
-                                {% endif %}
-                                <li><a class="dropdown-item" href="#" onclick="markForTwitter('{{ article.id }}')">
-                                    <i class="bi bi-twitter me-2"></i>Für Twitter markieren
-                                </a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteArticle('{{ article.id }}')">
-                                    <i class="bi bi-trash me-2"></i>Löschen
-                                </a></li>
-                            </ul>
                         </div>
                     </div>
+
+                    <div class="p-3">
+                    <!-- Article Title -->
+                    {% if article.title %}
+                    <h5 class="article-title mb-2">
+                        {% if article.url %}
+                        <a href="{{ article.url }}" target="_blank" class="text-decoration-none">
+                            {{ article.title }}
+                        </a>
+                        {% else %}
+                        {{ article.title }}
+                        {% endif %}
+                    </h5>
+                    {% endif %}
+
+                    <!-- Link Previews (loaded on demand) -->
+                    {% if article.content and 'http' in article.content %}
+                    <div class="link-previews mb-3">
+                        {% if article.link_previews %}
+                        <!-- Show instant preview immediately -->
+                        <div id="preview-{{ article.id }}" class="preview-container mt-2">
+                            {% for preview in article.link_previews %}
+                            {% if preview.type == 'oembed' and preview.html %}
+                            <!-- oEmbed with HTML (Videos, Tweets, etc.) -->
+                            <div class="link-preview-card border rounded p-3 mb-2 bg-light">
+                                <div class="embed-responsive mb-2">
+                                    {{ preview.html | safe }}
+                                </div>
+                                {% if preview.title %}
+                                <h6 class="mb-1 fw-bold">
+                                    <a href="{{ preview.url }}" target="_blank" class="text-decoration-none">
+                                        {{ preview.title[:80] }}{% if preview.title|length > 80 %}...{% endif %}
+                                    </a>
+                                </h6>
+                                {% endif %}
+                                <div class="d-flex align-items-center text-muted small">
+                                    <i class="bi bi-lightning-fill me-1 text-warning"></i>
+                                    <span>Instant-Vorschau</span>
+                                    {% if preview.site_name %}<span class="ms-2">{{ preview.site_name }}</span>{% endif %}
+                                </div>
+                            </div>
+                            {% else %}
+                            <!-- Standard Meta Preview -->
+                            <div class="link-preview-card border rounded p-3 mb-2 bg-light">
+                                <div class="row g-2">
+                                    {% if preview.image %}
+                                    <div class="col-auto">
+                                        <img src="{{ preview.image }}" alt="Preview" 
+                                             class="rounded" style="width: 80px; height: 60px; object-fit: cover;">
+                                    </div>
+                                    {% endif %}
+                                    <div class="col">
+                                        <div class="link-preview-content">
+                                            {% if preview.title %}
+                                            <h6 class="mb-1 fw-bold">
+                                                <a href="{{ preview.url }}" target="_blank" class="text-decoration-none">
+                                                    {{ preview.title[:80] }}{% if preview.title|length > 80 %}...{% endif %}
+                                                </a>
+                                            </h6>
+                                            {% endif %}
+                                            {% if preview.description %}
+                                            <p class="mb-1 text-muted small">
+                                                {{ preview.description[:120] }}{% if preview.description|length > 120 %}...{% endif %}
+                                            </p>
+                                            {% endif %}
+                                            <div class="d-flex align-items-center text-muted small">
+                                                {% if preview.favicon %}
+                                                <img src="{{ preview.favicon }}" alt="Site" 
+                                                     class="me-1" style="width: 16px; height: 16px;">
+                                                {% endif %}
+                                                <span>{{ preview.site_name or preview.url.replace('https://', '').replace('http://', '') }}</span>
+                                                <i class="bi bi-lightning-fill ms-1 text-warning" title="Instant-Vorschau"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <button class="btn btn-sm btn-outline-info" onclick="loadLinkPreview('{{ article.id }}', this)">
+                            <i class="bi bi-link-45deg"></i> Website-Vorschau laden
+                        </button>
+                        <div id="preview-{{ article.id }}" class="preview-container d-none mt-2"></div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
 
                     <!-- Article Content -->
                     {% if article.content %}
                     <div class="article-content mb-3">
-                        <p class="mb-2">{{ article.content[:300] }}{% if article.content|length > 300 %}...</p>
-                        <button class="btn btn-link btn-sm p-0" onclick="toggleFullContent(this)">
-                            Mehr anzeigen
-                        </button>
-                        <div class="full-content d-none">
-                            <p>{{ article.content }}</p>
-                        </div>
-                        {% else %}{{ article.content }}</p>{% endif %}
-                    </div>
-                    {% endif %}
-
-                    <!-- Keywords -->
-                    {% if article.keywords %}
-                    <div class="mb-3">
-                        {% for keyword in article.keywords[:5] %}
-                        <span class="badge bg-light text-dark me-1">#{{ keyword }}</span>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-
-                    <!-- Rating Buttons -->
-                    <div class="rating-buttons mb-3">
-                        <button class="rating-btn btn btn-sm btn-outline-success{{ ' active' if article.relevance_score == 'high' else '' }}" 
-                                onclick="rateArticle('{{ article.id }}', 'high')">
-                            <i class="bi bi-star-fill me-1"></i>Hoch relevant
-                            {% if article.relevance_score == 'high' %}<i class="bi bi-check ms-1"></i>{% endif %}
-                        </button>
-                        <button class="rating-btn btn btn-sm btn-outline-warning{{ ' active' if article.relevance_score == 'medium' else '' }}" 
-                                onclick="rateArticle('{{ article.id }}', 'medium')">
-                            <i class="bi bi-star-half me-1"></i>Mittel relevant
-                            {% if article.relevance_score == 'medium' %}<i class="bi bi-check ms-1"></i>{% endif %}
-                        </button>
-                        <button class="rating-btn btn btn-sm btn-outline-danger{{ ' active' if article.relevance_score == 'low' else '' }}" 
-                                onclick="rateArticle('{{ article.id }}', 'low')">
-                            <i class="bi bi-star me-1"></i>Niedrig relevant
-                            {% if article.relevance_score == 'low' %}<i class="bi bi-check ms-1"></i>{% endif %}
-                        </button>
-                    </div>
-
-                    <!-- Article Meta -->
-                    <div class="article-meta d-flex justify-content-between align-items-center">
-                        <small class="text-muted">
-                            <i class="bi bi-calendar me-1"></i>
-                            {{ article.published_at[:16].replace('T', ' ') if article.published_at else 'Kein Datum' }}
-                        </small>
-                        <small class="text-muted">
-                            {% if article.source_name %}
-                                <i class="bi bi-broadcast me-1"></i>{{ article.source_name }}
+                        {% set clean_content = article.content | render_telegram_content_clean %}
+                        {% if clean_content %}
+                        <div class="content-preview">
+                            {{ clean_content[:300] | safe }}
+                            {% if clean_content|length > 300 %}
+                            <span class="text-muted">...</span>
+                            <button class="btn btn-link btn-sm p-0 ms-1" onclick="toggleFullContent(this)">
+                                <i class="bi bi-chevron-down me-1"></i>Mehr anzeigen
+                            </button>
                             {% endif %}
-                        </small>
+                        </div>
+                        {% if clean_content|length > 300 %}
+                        <div class="full-content d-none mt-2">
+                            <div class="border-top pt-2">
+                                {{ clean_content | safe }}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                    {% endif %}
                     </div>
                 </div>
             </div>
-        </div>
+        {% endif %}
         {% endfor %}
-    {% else %}
-        <!-- Empty State -->
-        <div class="text-center py-5">
-            <i class="bi bi-file-text text-muted" style="font-size: 4rem;"></i>
-            <h4 class="mt-3 text-muted">Noch keine Artikel gesammelt</h4>
-            <p class="text-muted">Füge Telegram-Channels hinzu und starte eine Synchronisation, um Artikel zu sammeln.</p>
-            <a href="{{ url_for('telegram.telegram_dashboard') }}" class="btn btn-primary">
-                <i class="bi bi-telegram me-1"></i>Telegram Channels verwalten
-            </a>
-        </div>
+    </div>
+    
+    {% if not articles %}
+    <div class="text-center py-5">
+        <i class="bi bi-newspaper display-1 text-muted"></i>
+        <h3 class="text-muted mt-3">Keine Artikel gefunden</h3>
+        <p class="text-muted">Starte das Scraping, um neue Artikel zu sammeln.</p>
+    </div>
     {% endif %}
 </div>
 
-<!-- Load More Button (if many articles) -->
-{% if articles|length >= 50 %}
-<div class="text-center mt-4">
-    <button class="btn btn-outline-primary" onclick="loadMoreArticles()">
-        <i class="bi bi-arrow-down-circle me-1"></i>Weitere Artikel laden
-    </button>
-</div>
-{% endif %}
-{% endblock %}
-
-{% block scripts %}
 <script>
-// Article Rating
-async function rateArticle(articleId, rating) {
-    try {
-        const success = await articleManager.rateArticle(articleId, rating);
-        if (success) {
-            // Update UI to show rating
-            const articleCard = document.querySelector(`[data-rating]`);
-            if (articleCard) {
-                articleCard.setAttribute('data-rating', rating);
+function updateRating(articleId, rating, button) {
+    const buttons = button.parentElement.querySelectorAll('.btn');
+    
+    fetch('/articles/rate/' + articleId, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({rating: rating})
+    })
+    .then(response => response.json())
+    .then(data => {
+        buttons.forEach(btn => btn.classList.remove('active'));
+        if (data.success) {
+            button.classList.add('active');
+            // Hide article if marked as spam
+            if (rating === 'spam') {
+                const article = button.closest('.col-12');
+                if (article) {
+                    article.style.opacity = '0';
+                    article.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        article.style.display = 'none';
+                    }, 300);
+                }
             }
-            // Update button states
-            updateRatingButtons(articleId, rating);
         }
-    } catch (error) {
-        console.error('Rating failed:', error);
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function deleteArticle(articleId, button) {
+    if (confirm('Artikel wirklich löschen?')) {
+        fetch('/articles/delete/' + articleId, {
+            method: 'POST',
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const card = button.closest('.col-12');
+                if (card) {
+                    card.remove();
+                }
+            }
+        })
+        .catch(error => console.error('Error:', error));
     }
 }
 
-function updateRatingButtons(articleId, rating) {
-    const card = document.querySelector(`[data-rating]`);
-    if (!card) return;
-    
-    const buttons = card.querySelectorAll('.rating-btn');
-    buttons.forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.textContent.toLowerCase().includes(rating)) {
-            btn.classList.add('active');
-        }
-    });
-}
-
-// Article Filtering
-function filterArticles(filter) {
-    const articles = document.querySelectorAll('.article-card');
-    const filterButtons = document.querySelectorAll('[data-filter]');
-
-    // Update active filter button
-    filterButtons.forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.getAttribute('data-filter') === filter) {
-            btn.classList.add('active');
-        }
-    });
-
-    // Filter articles
-    articles.forEach(article => {
-        let show = false;
-        
-        switch(filter) {
-            case 'all':
-                show = true;
-                break;
-            case 'telegram':
-                show = article.dataset.source === 'telegram';
-                break;
-            case 'unrated':
-                show = article.dataset.rating === 'unrated';
-                break;
-            case 'high':
-                show = article.dataset.rating === 'high';
-                break;
-            case 'twitter':
-                show = article.dataset.twitter === 'yes';
-                break;
-        }
-        
-        article.style.display = show ? 'block' : 'none';
-    });
-}
-
-// Toggle full content
 function toggleFullContent(button) {
-    const fullContent = button.nextElementSibling;
-    const isShown = !fullContent.classList.contains('d-none');
+    const card = button.closest('.card-body');
+    const preview = card.querySelector('.content-preview');
+    const fullContent = card.querySelector('.full-content');
     
-    if (isShown) {
-        fullContent.classList.add('d-none');
-        button.textContent = 'Mehr anzeigen';
-    } else {
+    if (fullContent.classList.contains('d-none')) {
         fullContent.classList.remove('d-none');
-        button.textContent = 'Weniger anzeigen';
+        preview.style.display = 'none';
+        button.innerHTML = '<i class="bi bi-chevron-up me-1"></i>Weniger anzeigen';
+    } else {
+        fullContent.classList.add('d-none');
+        preview.style.display = 'block';
+        button.innerHTML = '<i class="bi bi-chevron-down me-1"></i>Mehr anzeigen';
     }
 }
 
-// Mark for Twitter
-async function markForTwitter(articleId) {
-    try {
-        const response = await newsApp.apiCall(`/articles/mark-twitter/${articleId}`, {
-            method: 'POST'
-        });
-        
-        if (response.success) {
-            newsApp.showNotification('Artikel für Twitter markiert', 'success');
-            // Update UI
-            const card = document.querySelector('.article-card');
-            card.setAttribute('data-twitter', 'yes');
-        }
-    } catch (error) {
-        newsApp.showNotification('Fehler beim Markieren: ' + error.message, 'danger');
-    }
-}
-
-// Delete Article
-async function deleteArticle(articleId) {
-    if (!confirm('Artikel wirklich löschen?')) return;
+function loadLinkPreview(articleId, button) {
+    const container = document.getElementById(`preview-${articleId}`);
     
-    try {
-        const response = await newsApp.apiCall(`/articles/delete/${articleId}`, {
-            method: 'DELETE'
+    // Show loading state
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i> Lade...';
+    button.disabled = true;
+    
+    // Make AJAX request for link preview
+    fetch(`/articles/${articleId}/preview`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.previews && data.previews.length > 0) {
+                // Render previews
+                let html = '';
+                data.previews.forEach(preview => {
+                    if (preview.type === 'oembed' && preview.html) {
+                        // oEmbed mit HTML (Videos, Tweets, etc.)
+                        html += `
+                            <div class="link-preview-card border rounded p-3 mb-2 bg-light">
+                                <div class="embed-responsive mb-2">
+                                    ${preview.html}
+                                </div>
+                                ${preview.title ? `
+                                <h6 class="mb-1 fw-bold">
+                                    <a href="${preview.url}" target="_blank" class="text-decoration-none">
+                                        ${preview.title.substring(0, 80)}${preview.title.length > 80 ? '...' : ''}
+                                    </a>
+                                </h6>
+                                ` : ''}
+                                <div class="d-flex align-items-center text-muted small">
+                                    <i class="bi bi-lightning-fill me-1 text-warning"></i>
+                                    <span>Schnell-Vorschau</span>
+                                    ${preview.site_name ? `<span class="ms-2">${preview.site_name}</span>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // Standard Meta-Vorschau
+                        html += `
+                            <div class="link-preview-card border rounded p-3 mb-2 bg-light">
+                                <div class="row g-2">
+                                    ${preview.image ? `
+                                    <div class="col-auto">
+                                        <img src="${preview.image}" alt="Preview" 
+                                             class="rounded" style="width: 80px; height: 60px; object-fit: cover;">
+                                    </div>
+                                    ` : ''}
+                                    <div class="col">
+                                        <div class="link-preview-content">
+                                            ${preview.title ? `
+                                            <h6 class="mb-1 fw-bold">
+                                                <a href="${preview.url}" target="_blank" class="text-decoration-none">
+                                                    ${preview.title.substring(0, 80)}${preview.title.length > 80 ? '...' : ''}
+                                                </a>
+                                            </h6>
+                                            ` : ''}
+                                            ${preview.description ? `
+                                            <p class="mb-1 text-muted small">
+                                                ${preview.description.substring(0, 120)}${preview.description.length > 120 ? '...' : ''}
+                                            </p>
+                                            ` : ''}
+                                            <div class="d-flex align-items-center text-muted small">
+                                                ${preview.favicon ? `
+                                                <img src="${preview.favicon}" alt="Site" 
+                                                     class="me-1" style="width: 16px; height: 16px;">
+                                                ` : ''}
+                                                <span>${preview.site_name || preview.url.replace('https://', '').replace('http://', '')}</span>
+                                                ${preview.type === 'oembed' ? '<i class="bi bi-lightning-fill ms-1 text-warning" title="Schnell-Vorschau"></i>' : ''}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+                container.innerHTML = html;
+                container.classList.remove('d-none');
+                button.style.display = 'none';
+            } else {
+                button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Keine Vorschau verfügbar';
+                button.classList.add('btn-outline-secondary');
+                button.classList.remove('btn-outline-info');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading preview:', error);
+            button.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Fehler beim Laden';
+            button.classList.add('btn-outline-danger');
+            button.classList.remove('btn-outline-info');
+        })
+        .finally(() => {
+            button.disabled = false;
         });
-        
-        if (response.success) {
-            newsApp.showNotification('Artikel gelöscht', 'success');
-            // Remove from UI
-            const articleCard = event.target.closest('.article-card');
-            articleCard.remove();
-        }
-    } catch (error) {
-        newsApp.showNotification('Fehler beim Löschen: ' + error.message, 'danger');
-    }
-}
-
-// Load more articles (placeholder)
-function loadMoreArticles() {
-    newsApp.showNotification('Pagination wird noch implementiert', 'info');
 }
 </script>
+
+<style>
+/* Override content-area padding for this page */
+.content-area {
+    padding: 0 !important;
+}
+
+.article-card {
+    border: none;
+    border-radius: 0;
+    background: white;
+    margin-bottom: 1rem;
+    box-shadow: none;
+}
+
+.rating-buttons-container {
+    white-space: nowrap;
+    font-size: 0; /* Removes space between inline-block elements */
+    align-self: flex-start; /* Force top alignment */
+}
+
+.rating-buttons-container .btn {
+    font-size: 0.85rem;
+    margin: 0;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    min-width: 2rem;
+    display: inline-block;
+    vertical-align: top;
+    line-height: 1.2;
+}
+
+/* Remove any borders/lines */
+.article-card .article-body {
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Ensure badges align to top */
+.badge {
+    vertical-align: top;
+    line-height: 1.2;
+}
+
+.rating-buttons .btn.active {
+    transform: scale(1.05);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.article-title {
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.link-preview-card {
+    border: 1px solid #dee2e6 !important;
+    background: #f8f9fa !important;
+}
+
+/* Hide spam articles with smooth transition */
+.article-card[data-spam="true"] {
+    opacity: 0;
+    transform: scale(0.95);
+    transition: all 0.3s ease;
+    pointer-events: none;
+    height: 0;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+</style>
 {% endblock %}

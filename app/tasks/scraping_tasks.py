@@ -2,37 +2,12 @@
 Celery Tasks für Background-Verarbeitung
 """
 
-from celery import Celery
+from app.celery_app import celery_app
 from celery.schedules import crontab
 import os
 import logging
-from app.scrapers import sync_monitor_telegram_channels
-
-# Celery-App erstellen
-celery_app = Celery('ticker')
-
-# Konfiguration laden
-celery_app.conf.update(
-    broker_url=os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0'),
-    result_backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0'),
-    task_serializer='json',
-    accept_content=['json'],
-    result_serializer='json',
-    timezone='UTC',
-    enable_utc=True,
-    
-    # Periodische Tasks
-    beat_schedule={
-        'monitor-telegram-channels': {
-            'task': 'app.tasks.scraping_tasks.monitor_telegram_task',
-            'schedule': crontab(minute='*/30'),  # Alle 30 Minuten
-        },
-        'cleanup-old-articles': {
-            'task': 'app.tasks.scraping_tasks.cleanup_old_articles_task',
-            'schedule': crontab(hour=2, minute=0),  # Täglich um 2:00 Uhr
-        },
-    },
-)
+from datetime import datetime
+from app.scrapers import sync_monitor_telegram_channels, TelethonChannelScraper
 
 # Logging konfigurieren
 logging.basicConfig(level=logging.INFO)
@@ -41,15 +16,40 @@ logger = logging.getLogger(__name__)
 
 @celery_app.task(name='app.tasks.scraping_tasks.monitor_telegram_task')
 def monitor_telegram_task():
-    """Celery-Task für Telegram-Channel-Monitoring"""
+    """Celery-Task für Telegram-Channel-Monitoring (Bot API - Legacy)"""
     try:
-        logger.info("Starte Telegram-Channel-Monitoring")
+        logger.info("Starte Telegram-Channel-Monitoring (Bot API)")
         new_articles = sync_monitor_telegram_channels()
-        logger.info(f"Telegram-Monitoring abgeschlossen: {new_articles} neue Artikel")
-        return {'new_articles': new_articles, 'status': 'success'}
+        logger.info(f"Bot API Monitoring abgeschlossen: {new_articles} neue Artikel")
+        return {'new_articles': new_articles, 'status': 'success', 'scraper': 'bot_api'}
     except Exception as e:
-        logger.error(f"Fehler beim Telegram-Monitoring: {e}")
-        return {'error': str(e), 'status': 'error'}
+        logger.error(f"Fehler beim Bot API Monitoring: {e}")
+        return {'error': str(e), 'status': 'error', 'scraper': 'bot_api'}
+
+
+@celery_app.task(name='app.tasks.scraping_tasks.monitor_telethon_task')
+def monitor_telethon_task():
+    """Celery-Task für Telethon-basiertes Telegram-Monitoring"""
+    try:
+        logger.info("Starte Telethon-Channel-Monitoring")
+        
+        # Prüfe ob Telethon-Session existiert
+        session_path = '/app/data/telethon_session.session'
+        if not os.path.exists(session_path):
+            logger.warning("Telethon-Session nicht gefunden. Nutze Bot API als Fallback.")
+            return monitor_telegram_task()
+        
+        # Verwende Telethon-Scraper
+        scraper = TelethonChannelScraper()
+        new_articles = scraper.scrape_channels()
+        
+        logger.info(f"Telethon-Monitoring abgeschlossen: {new_articles} neue Artikel")
+        return {'new_articles': new_articles, 'status': 'success', 'scraper': 'telethon'}
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Telethon-Monitoring: {e}")
+        logger.info("Fallback zu Bot API")
+        return monitor_telegram_task()
 
 
 @celery_app.task(name='app.tasks.scraping_tasks.cleanup_old_articles_task')
@@ -103,3 +103,20 @@ def process_article_with_ai(article_id: str):
 def health_check():
     """Celery Health-Check"""
     return {'status': 'healthy', 'timestamp': datetime.now().isoformat()}
+
+
+# Periodische Tasks konfigurieren
+celery_app.conf.beat_schedule = {
+    'monitor-telegram-channels': {
+        'task': 'app.tasks.scraping_tasks.monitor_telethon_task',  # Aktualisiert zu Telethon
+        'schedule': crontab(minute='*/30'),  # Alle 30 Minuten
+    },
+    'monitor-telegram-bot-fallback': {
+        'task': 'app.tasks.scraping_tasks.monitor_telegram_task',  # Bot API als Backup
+        'schedule': crontab(minute='*/60'),  # Jede Stunde als Fallback
+    },
+    'cleanup-old-articles': {
+        'task': 'app.tasks.scraping_tasks.cleanup_old_articles_task',
+        'schedule': crontab(hour=2, minute=0),  # Täglich um 2:00 Uhr
+    },
+}

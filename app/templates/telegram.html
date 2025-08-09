@@ -48,9 +48,12 @@
                     <i class="bi bi-arrow-clockwise text-primary me-2"></i>Synchronisation
                 </h5>
                 <p class="card-text text-muted">Überprüfe alle Channels auf neue Nachrichten</p>
-                <button class="btn btn-primary" onclick="performManualSync(this)">
-                    <i class="bi bi-arrow-clockwise me-1"></i>Jetzt synchronisieren
-                </button>
+                                    <button type="button" class="btn btn-primary" onclick="manualSync()">
+                        <i class="fas fa-sync"></i> Manueller Sync
+                    </button>
+                    <a href="/telegram/telethon/setup" class="btn btn-info">
+                        <i class="fas fa-rocket"></i> Telethon Setup
+                    </a>
             </div>
         </div>
     </div>

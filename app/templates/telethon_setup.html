@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block title %}Telethon Setup - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <!-- Header -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="mb-0">
+                        <i class="fas fa-telegram-plane text-primary"></i>
+                        Telethon User Client Setup
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h5><i class="fas fa-info-circle"></i> Was ist Telethon?</h5>
+                        <p class="mb-0">
+                            Telethon nutzt deinen persönlichen Telegram-Account, um auf alle öffentlichen Kanäle zuzugreifen. 
+                            Das umgeht die Bot-API-Limitierungen und ermöglicht echtes News-Scraping.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Setup-Prozess -->
+            <div class="card">
+                <div class="card-header">
+                    <h4>Setup-Prozess</h4>
+                </div>
+                <div class="card-body">
+                    {% if is_authenticated %}
+                    <!-- Bereits authentifiziert -->
+                    <div class="alert alert-success">
+                        <h5><i class="fas fa-check-circle"></i> Telethon bereits konfiguriert!</h5>
+                        <p class="mb-3">Dein Telegram-Account ist bereits authentifiziert und bereit für das News-Scraping.</p>
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-primary btn-lg" onclick="startTelethonScraping()">
+                                <i class="fas fa-play"></i> Scraping starten
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="showStep(1)">
+                                <i class="fas fa-redo"></i> Neu authentifizieren
+                            </button>
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- Setup-Schritte -->
+                    {% endif %}
+                    
+                    <!-- Schritt 1: API Credentials -->
+                    <div id="step1" class="setup-step {% if is_authenticated %}d-none{% endif %}">
+                        <h5 class="text-primary">Schritt 1: Telegram API Credentials</h5>
+                        <div class="alert alert-warning">
+                            <strong>Benötigt:</strong> Du brauchst API-Credentials von 
+                            <a href="https://my.telegram.org" target="_blank" class="alert-link">my.telegram.org</a>
+                        </div>
+                        
+                                                <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="api_id" class="form-label">API ID</label>
+                                    <input type="text" class="form-control" id="api_id" placeholder="1234567" value="{{ api_id or '' }}">
+                                    <div class="form-text">Numerische ID von my.telegram.org</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="api_hash" class="form-label">API Hash</label>
+                                    <input type="text" class="form-control" id="api_hash" placeholder="abc123def456..." value="{{ api_hash or '' }}">
+                                    <div class="form-text">Alphanumerischer Hash von my.telegram.org</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Telefonnummer</label>
+                            <input type="tel" class="form-control" id="phone" placeholder="+491234567890" value="{{ phone or '' }}">
+                            <div class="form-text">Vollständige internationale Nummer (mit +49)</div>
+                        </div>
+                        
+                        <button type="button" class="btn btn-primary" onclick="setupTelethon()">
+                            <i class="fas fa-rocket"></i> Setup starten
+                        </button>
+                    </div>
+
+                    <!-- Schritt 2: Verifikation -->
+                    <div id="step2" class="setup-step d-none">
+                        <h5 class="text-primary">Schritt 2: Telegram-Code eingeben</h5>
+                        <div class="alert alert-info">
+                            <i class="fas fa-mobile-alt"></i>
+                            Du solltest jetzt einen Verifikationscode per Telegram erhalten haben.
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="verification_code" class="form-label">Verifikationscode</label>
+                            <input type="text" class="form-control" id="verification_code" placeholder="12345">
+                            <div class="form-text">5-stelliger Code aus Telegram</div>
+                        </div>
+                        
+                        <button type="button" class="btn btn-success" onclick="verifyTelethon()">
+                            <i class="fas fa-check"></i> Verifizieren
+                        </button>
+                    </div>
+
+                    <!-- Schritt 3: Fertig -->
+                    <div id="step3" class="setup-step d-none">
+                        <div class="alert alert-success">
+                            <h5><i class="fas fa-check-circle"></i> Setup erfolgreich!</h5>
+                            <p class="mb-0">
+                                Telethon ist jetzt konfiguriert und kann für das News-Scraping verwendet werden.
+                            </p>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-primary btn-lg" onclick="startTelethonScraping()">
+                                <i class="fas fa-play"></i> Erstes Scraping starten
+                            </button>
+                            <a href="/telegram/" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Zurück zur Telegram-Übersicht
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Status/Error Messages -->
+                    <div id="statusMessage" class="mt-3"></div>
+                </div>
+            </div>
+
+            <!-- Anleitung -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h4>📖 Schritt-für-Schritt Anleitung</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>API Credentials erhalten:</h6>
+                            <ol>
+                                <li>Gehe zu <a href="https://my.telegram.org" target="_blank">my.telegram.org</a></li>
+                                <li>Melde dich mit deiner Telefonnummer an</li>
+                                <li>Klicke auf "API Development Tools"</li>
+                                <li>Erstelle eine neue App (beliebiger Name)</li>
+                                <li>Kopiere API ID und API Hash</li>
+                            </ol>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Sicherheitshinweise:</h6>
+                            <ul>
+                                <li><strong>API Credentials geheim halten!</strong></li>
+                                <li>Nur deine eigene Telefonnummer verwenden</li>
+                                <li>Kein massenhaftes Scraping (Rate Limits beachten)</li>
+                                <li>Nur öffentliche Kanäle scrapen</li>
+                                <li>Telegram ToS beachten</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript für Setup-Prozess -->
+<script>
+let currentPhone = '';
+
+function setupTelethon() {
+    const apiId = document.getElementById('api_id').value;
+    const apiHash = document.getElementById('api_hash').value;
+    const phone = document.getElementById('phone').value;
+    
+    if (!apiId || !apiHash || !phone) {
+        showMessage('Bitte alle Felder ausfüllen', 'warning');
+        return;
+    }
+    
+    currentPhone = phone; // Telefonnummer speichern
+    showMessage('Setup wird gestartet...', 'info');
+    
+    fetch('/telegram/telethon/setup', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            api_id: apiId,
+            api_hash: apiHash,
+            phone: phone
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.already_authorized) {
+                showMessage('Bereits authentifiziert!', 'success');
+                showStep(3);
+            } else if (data.code_sent) {
+                showMessage('SMS-Code wurde gesendet!', 'success');
+                showStep(2);
+            }
+        } else {
+            showMessage('Fehler: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showMessage('Netzwerkfehler: ' + error, 'danger');
+    });
+}
+
+function verifyTelethon() {
+    const code = document.getElementById('verification_code').value;
+    const password = document.getElementById('two_factor_password') ? document.getElementById('two_factor_password').value : null;
+    
+    if (!code) {
+        showMessage('Bitte Verifikationscode eingeben', 'warning');
+        return;
+    }
+    
+    if (!currentPhone) {
+        showMessage('Telefonnummer fehlt. Bitte Setup neu starten.', 'danger');
+        showStep(1);
+        return;
+    }
+    
+    showMessage('Verifizierung läuft...', 'info');
+    
+    const requestBody = {
+        code: code,
+        phone: currentPhone
+    };
+    
+    if (password) {
+        requestBody.password = password;
+    }
+    
+    fetch('/telegram/telethon/verify', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage('Verifikation erfolgreich! Angemeldet als: ' + (data.user || 'Benutzer'), 'success');
+            showStep(3);
+        } else if (data.error === 'two_factor_required') {
+            showMessage(data.message || 'Zwei-Faktor-Authentifizierung erforderlich', 'warning');
+            show2FAInput();
+        } else {
+            showMessage('Fehler: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showMessage('Netzwerkfehler: ' + error, 'danger');
+    });
+}
+
+function show2FAInput() {
+    const step2 = document.getElementById('step2');
+    const existingPasswordField = document.getElementById('two_factor_password');
+    
+    if (!existingPasswordField) {
+        const passwordHTML = `
+            <div class="alert alert-info mt-3">
+                <h6><i class="fas fa-lock"></i> Zwei-Faktor-Authentifizierung</h6>
+                <p class="mb-2">Du hast 2FA aktiviert. Bitte gib dein Telegram-Passwort ein:</p>
+            </div>
+            <div class="mb-3">
+                <label for="two_factor_password" class="form-label">
+                    <i class="fas fa-key"></i> Telegram-Passwort:
+                </label>
+                <input type="password" class="form-control" id="two_factor_password" 
+                       placeholder="Dein Telegram-Passwort">
+            </div>
+        `;
+        
+        const codeInput = step2.querySelector('.mb-3');
+        codeInput.insertAdjacentHTML('afterend', passwordHTML);
+    }
+}
+
+function startTelethonScraping() {
+    showMessage('Scraping wird gestartet...', 'info');
+    
+    fetch('/telegram/telethon/scrape', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage('Scraping erfolgreich: ' + data.message, 'success');
+            setTimeout(() => {
+                window.location.href = '/telegram/';
+            }, 2000);
+        } else {
+            showMessage('Fehler: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showMessage('Netzwerkfehler: ' + error, 'danger');
+    });
+}
+
+function showStep(stepNumber) {
+    // Alle Schritte verstecken
+    document.querySelectorAll('.setup-step').forEach(step => {
+        step.classList.add('d-none');
+    });
+    
+    // Gewählten Schritt anzeigen
+    document.getElementById('step' + stepNumber).classList.remove('d-none');
+}
+
+function showMessage(message, type) {
+    const statusDiv = document.getElementById('statusMessage');
+    statusDiv.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+}
+</script>
+{% endblock %}

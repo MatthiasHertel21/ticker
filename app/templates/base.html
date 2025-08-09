@@ -29,7 +29,7 @@
         <div class="container-fluid">
             <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard') }}">
                 <i class="bi bi-newspaper me-2"></i>
-                News Aggregator
+                News ({{ global_article_count }})
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -64,6 +64,25 @@
                             <li><a class="dropdown-item" href="/health">
                                 <i class="bi bi-activity me-2"></i>System Status
                             </a></li>
+                            {% if request.endpoint == 'articles.articles_dashboard' %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header">Filter</h6></li>
+                            <li><a class="dropdown-item" href="#" onclick="filterArticles('all')">
+                                <i class="bi bi-list me-2"></i>Alle anzeigen
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="filterArticles('telegram')">
+                                <i class="bi bi-telegram me-2"></i>Nur Telegram
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="filterArticles('unrated')">
+                                <i class="bi bi-question-circle me-2"></i>Unbewertet
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="filterArticles('favorite')">
+                                <i class="bi bi-heart-fill me-2"></i>Favoriten
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="filterArticles('spam')">
+                                <i class="bi bi-trash me-2"></i>Spam
+                            </a></li>
+                            {% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="#" onclick="toggleTheme()">
                                 <i class="bi bi-sun me-2"></i>Theme wechseln

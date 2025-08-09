@@ -152,7 +152,99 @@ body {
   letter-spacing: 0.05em;
 }
 
-/* Article Cards */
+/* Article Content Styles */
+.article-content {
+  line-height: 1.6;
+}
+
+.article-content .content-preview,
+.article-content .full-content {
+  font-size: 0.95rem;
+  color: var(--bs-body-color);
+}
+
+.article-content strong {
+  font-weight: 600;
+  color: var(--na-text-primary);
+}
+
+.article-content em {
+  font-style: italic;
+  color: var(--na-text-secondary);
+}
+
+.article-content code {
+  background-color: var(--na-bg-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Consolas', monospace;
+  font-size: 0.9em;
+}
+
+/* Telegram Content Styles */
+.telegram-link {
+  color: var(--na-primary);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--na-primary);
+  transition: all 0.2s ease;
+}
+
+.telegram-link:hover {
+  color: var(--na-primary-dark);
+  text-decoration: none;
+  border-bottom: 1px solid var(--na-primary);
+}
+
+.telegram-image {
+  border-radius: var(--na-radius);
+  overflow: hidden;
+  background-color: var(--na-bg-secondary);
+}
+
+.telegram-image img {
+  transition: transform 0.3s ease;
+}
+
+.telegram-image:hover img {
+  transform: scale(1.02);
+}
+
+.telegram-video {
+  border-radius: var(--na-radius);
+  overflow: hidden;
+}
+
+.image-placeholder {
+  border: 2px dashed var(--na-border);
+}
+
+/* Toggle Button Styles */
+.btn-link.p-0 {
+  color: var(--na-primary);
+  font-size: 0.875rem;
+  border: none;
+  background: none;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.btn-link.p-0:hover {
+  color: var(--na-primary-dark);
+  text-decoration: underline;
+}
+
+.btn-link.p-0:focus {
+  box-shadow: none;
+}
+
+/* Responsive Image Handling */
+@media (max-width: 768px) {
+  .telegram-image img {
+    max-height: 200px;
+  }
+}
+
+/* Article Card Enhancements */
 .article-card {
   border: 1px solid var(--na-border);
   border-radius: var(--na-radius-lg);

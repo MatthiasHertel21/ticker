@@ -4,21 +4,23 @@ Route Registration and URL Patterns
 
 from flask import Blueprint, render_template
 
-# Import all route blueprints
-from .telegram import bp as telegram_bp
+"""
+Routes Package
+"""
+
+from flask import Flask
+from .main import bp as main_bp
 from .articles import bp as articles_bp
+from .telegram import bp as telegram_bp
+from .tasks import bp as tasks_bp
 
 
-def register_routes(app):
-    """Register all application routes"""
-    
-    # Telegram management routes
-    app.register_blueprint(telegram_bp)
-    
-    # Article management routes  
+def register_routes(app: Flask):
+    """Register all route blueprints"""
+    app.register_blueprint(main_bp)
     app.register_blueprint(articles_bp)
-    
-    # Main dashboard route (updated to include new features)
+    app.register_blueprint(telegram_bp)
+    app.register_blueprint(tasks_bp)    # Main dashboard route (updated to include new features)
     from flask import render_template_string
     
     @app.route('/')
@@ -30,12 +32,18 @@ def register_routes(app):
         articles = json_manager.read('articles')
         sources = json_manager.read('sources')
         
-        total_articles = len(articles.get('articles', {}))
+        # Handle both list and dict structure for articles
+        articles_data = articles.get('articles', [])
+        if isinstance(articles_data, list):
+            total_articles = len(articles_data)
+            rated_articles = sum(1 for a in articles_data if a.get('relevance_score'))
+        else:
+            total_articles = len(articles_data)
+            rated_articles = sum(1 for a in articles_data.values() if a.get('relevance_score'))
+        
         total_sources = len(sources.get('sources', {}))
         telegram_sources = sum(1 for s in sources.get('sources', {}).values() 
                               if s.get('type') == 'telegram')
-        rated_articles = sum(1 for a in articles.get('articles', {}).values() 
-                           if a.get('relevance_score'))
         
         # Check if Telegram is configured
         import os
