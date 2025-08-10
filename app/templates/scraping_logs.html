@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}Scraping-Protokoll{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="bi bi-clock-history me-2"></i>Scraping-Protokoll</h1>
+                <button class="btn btn-primary" onclick="refreshLogs()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Aktualisieren
+                </button>
+            </div>
+
+            <!-- Scraping Schedule Overview -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="bi bi-calendar-event me-2"></i>Scraping-Zeitplan</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group list-group-flush">
+                                <div class="list-group-item d-flex justify-content-between">
+                                    <span><strong>Telethon-Scraping</strong></span>
+                                    <span class="badge bg-success">Alle 30 Min</span>
+                                </div>
+                                <div class="list-group-item d-flex justify-content-between">
+                                    <span><strong>Bot API (Fallback)</strong></span>
+                                    <span class="badge bg-warning">Jede Stunde</span>
+                                </div>
+                                <div class="list-group-item d-flex justify-content-between">
+                                    <span><strong>Cleanup</strong></span>
+                                    <span class="badge bg-info">Täglich 02:00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Heute gesammelt</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <h2 class="text-success" id="todayArticlesCount">0</h2>
+                            <p class="text-muted">Neue Artikel heute</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Logs -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-terminal me-2"></i>Live Logs</h5>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
+                        <label class="form-check-label" for="autoRefresh">Auto-Refresh</label>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Log Filter -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <select class="form-select" id="logLevel">
+                                <option value="">Alle Log-Level</option>
+                                <option value="INFO">INFO</option>
+                                <option value="WARNING">WARNING</option>
+                                <option value="ERROR">ERROR</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <select class="form-select" id="logSource">
+                                <option value="">Alle Quellen</option>
+                                <option value="telethon">Telethon</option>
+                                <option value="bot_api">Bot API</option>
+                                <option value="celery">Celery</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="number" class="form-control" id="logLines" placeholder="Anzahl Zeilen" value="50">
+                        </div>
+                    </div>
+
+                    <!-- Log Output -->
+                    <div class="log-container" id="logOutput">
+                        <div class="text-center text-muted py-3">
+                            <i class="bi bi-hourglass-split me-2"></i>Lade Logs...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scraping Statistics -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Scraping-Statistiken</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="scrapingStats">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-primary" id="totalChannels">15</h4>
+                                <p class="text-muted">Telegram-Kanäle</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-success" id="lastHourArticles">0</h4>
+                                <p class="text-muted">Letzte Stunde</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-warning" id="last6HourArticles">0</h4>
+                                <p class="text-muted">Letzte 6 Stunden</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-info" id="totalArticles">{{ stats.total_articles or 0 }}</h4>
+                                <p class="text-muted">Gesamt</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.log-container {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    padding: 15px;
+    border-radius: 5px;
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid #333;
+}
+
+.log-line {
+    margin-bottom: 2px;
+    padding: 2px 0;
+    border-bottom: 1px solid #333;
+}
+
+.log-time {
+    color: #569cd6;
+}
+
+.log-level-INFO {
+    color: #4ec9b0;
+}
+
+.log-level-WARNING {
+    color: #dcdcaa;
+}
+
+.log-level-ERROR {
+    color: #f44747;
+}
+
+.log-message {
+    color: #d4d4d4;
+}
+</style>
+
+<script>
+let autoRefreshInterval;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadLogs();
+    startAutoRefresh();
+    
+    // Event listeners
+    document.getElementById('logLevel').addEventListener('change', loadLogs);
+    document.getElementById('logSource').addEventListener('change', loadLogs);
+    document.getElementById('logLines').addEventListener('change', loadLogs);
+    document.getElementById('autoRefresh').addEventListener('change', function() {
+        if (this.checked) {
+            startAutoRefresh();
+        } else {
+            stopAutoRefresh();
+        }
+    });
+});
+
+function loadLogs() {
+    const level = document.getElementById('logLevel').value;
+    const source = document.getElementById('logSource').value;
+    const lines = document.getElementById('logLines').value || 50;
+    
+    fetch(`/monitoring/api/logs?level=${level}&source=${source}&lines=${lines}`)
+        .then(response => response.json())
+        .then(data => {
+            displayLogs(data.logs);
+            updateStats(data.stats);
+        })
+        .catch(error => {
+            console.error('Error loading logs:', error);
+            document.getElementById('logOutput').innerHTML = 
+                '<div class="text-danger">Fehler beim Laden der Logs: ' + error + '</div>';
+        });
+}
+
+function displayLogs(logs) {
+    const logOutput = document.getElementById('logOutput');
+    
+    if (!logs || logs.length === 0) {
+        logOutput.innerHTML = '<div class="text-muted text-center py-3">Keine Logs gefunden</div>';
+        return;
+    }
+    
+    const logHtml = logs.map(log => {
+        const time = log.timestamp ? new Date(log.timestamp).toLocaleString() : '';
+        const level = log.level || '';
+        const message = log.message || '';
+        
+        return `
+            <div class="log-line">
+                <span class="log-time">[${time}]</span>
+                <span class="log-level-${level} fw-bold">${level}</span>
+                <span class="log-message">${message}</span>
+            </div>
+        `;
+    }).join('');
+    
+    logOutput.innerHTML = logHtml;
+    logOutput.scrollTop = logOutput.scrollHeight;
+}
+
+function updateStats(stats) {
+    if (!stats) return;
+    
+    document.getElementById('todayArticlesCount').textContent = stats.today_articles || 0;
+    document.getElementById('lastHourArticles').textContent = stats.last_hour || 0;
+    document.getElementById('last6HourArticles').textContent = stats.last_6_hours || 0;
+    document.getElementById('totalArticles').textContent = stats.total_articles || 0;
+}
+
+function refreshLogs() {
+    loadLogs();
+}
+
+function startAutoRefresh() {
+    stopAutoRefresh();
+    autoRefreshInterval = setInterval(loadLogs, 30000); // 30 Sekunden
+}
+
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+
+{% block title %}Housekeeping Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+.housekeeping-card {
+    border-left: 4px solid #007bff;
+    transition: all 0.3s ease;
+}
+
+.housekeeping-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    opacity: 0.9;
+    font-size: 0.9rem;
+}
+
+.cleanup-btn {
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.storage-progress {
+    height: 10px;
+    border-radius: 5px;
+    margin-top: 1rem;
+}
+
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-good { background-color: #28a745; }
+.status-warning { background-color: #ffc107; }
+.status-danger { background-color: #dc3545; }
+
+@media (max-width: 768px) {
+    .stat-card {
+        margin-bottom: 1rem;
+    }
+    .stat-number {
+        font-size: 1.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="fas fa-broom text-primary"></i>
+                        Housekeeping Dashboard
+                    </h1>
+                    <small class="text-muted">
+                        Automatische Datenbereinigung und Speicherverwaltung
+                    </small>
+                </div>
+                <div class="text-end">
+                    <small class="text-muted d-block">
+                        Letzte Aktualisierung: <span id="stats-timestamp">{{ current_time.strftime('%H:%M:%S') }}</span>
+                    </small>
+                    <button class="btn btn-outline-primary btn-sm" onclick="housekeepingManager.refreshStorageStats()">
+                        <i class="fas fa-sync-alt"></i> Aktualisieren
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Container -->
+    <div class="alert-container"></div>
+
+    <!-- Speicher-Übersicht -->
+    {% if storage_stats %}
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card text-center">
+                <div class="stat-number" id="articles-count">{{ storage_stats.articles.count }}</div>
+                <div class="stat-label">Artikel</div>
+                <small class="d-block mt-1" id="articles-size">{{ storage_stats.articles.size_mb }} MB</small>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card text-center">
+                <div class="stat-number" id="media-count">{{ storage_stats.media.count }}</div>
+                <div class="stat-label">Media Files</div>
+                <small class="d-block mt-1" id="media-size">{{ storage_stats.media.size_mb }} MB</small>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card text-center">
+                <div class="stat-number" id="backups-count">{{ storage_stats.backups.count }}</div>
+                <div class="stat-label">Backups</div>
+                <small class="d-block mt-1" id="backups-size">{{ storage_stats.backups.size_mb }} MB</small>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card text-center">
+                <div class="stat-number" id="total-size">{{ storage_stats.total.size_mb }}</div>
+                <div class="stat-label">Total MB</div>
+                <small class="d-block mt-1">{{ storage_stats.total.size_gb }} GB</small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Artikel-Bereinigung -->
+        <div class="col-lg-6 col-md-12 mb-4">
+            <div class="card housekeeping-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-newspaper text-primary"></i>
+                        Artikel bereinigen
+                    </h5>
+                    <span class="status-indicator status-{{ 'good' if storage_stats and storage_stats.articles.count < 1000 else 'warning' if storage_stats and storage_stats.articles.count < 2000 else 'danger' }}"></span>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        Entfernt Artikel älter als {{ config.cleanup_days or 30 }} Tage.
+                        Zugehörige Media-Files werden automatisch mitentfernt.
+                    </p>
+                    
+                    <form action="{{ url_for('housekeeping.cleanup_articles') }}" method="post">
+                        <div class="row mb-3">
+                            <div class="col-8">
+                                <label for="article-days" class="form-label">Alter in Tagen:</label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="article-days" 
+                                       name="days" 
+                                       value="{{ config.cleanup_days or 30 }}" 
+                                       min="1" 
+                                       max="365">
+                            </div>
+                            <div class="col-4 d-flex align-items-end">
+                                <button type="submit" 
+                                        class="cleanup-btn btn btn-warning" 
+                                        data-cleanup-action="articles"
+                                        data-original-text="Bereinigen">
+                                    <i class="fas fa-trash-alt"></i> Bereinigen
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i>
+                            Betrifft Artikel mit <code>scraped_date</code> älter als das angegebene Datum
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Media-Bereinigung -->
+        <div class="col-lg-6 col-md-12 mb-4">
+            <div class="card housekeeping-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-images text-success"></i>
+                        Verwaiste Media-Files
+                    </h5>
+                    <span class="status-indicator status-{{ 'good' if storage_stats and storage_stats.media.count < 100 else 'warning' if storage_stats and storage_stats.media.count < 500 else 'danger' }}"></span>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        Entfernt Media-Files, die nicht mehr von Artikeln referenziert werden.
+                    </p>
+                    
+                    <form action="{{ url_for('housekeeping.cleanup_media') }}" method="post">
+                        <button type="submit" 
+                                class="cleanup-btn btn btn-success" 
+                                data-cleanup-action="media"
+                                data-original-text="Bereinigen">
+                            <i class="fas fa-broom"></i> Verwaiste Files bereinigen
+                        </button>
+                    </form>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i>
+                            Analysiert alle Artikel und entfernt nicht referenzierte Bilder
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Backup-Bereinigung -->
+        <div class="col-lg-6 col-md-12 mb-4">
+            <div class="card housekeeping-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-archive text-info"></i>
+                        Backup-Bereinigung
+                    </h5>
+                    <span class="status-indicator status-{{ 'good' if storage_stats and storage_stats.backups.count < 50 else 'warning' if storage_stats and storage_stats.backups.count < 100 else 'danger' }}"></span>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        Entfernt Backup-Files älter als {{ config.backup_retention_days or 7 }} Tage.
+                    </p>
+                    
+                    <form action="{{ url_for('housekeeping.cleanup_backups') }}" method="post">
+                        <div class="row mb-3">
+                            <div class="col-8">
+                                <label for="backup-days" class="form-label">Alter in Tagen:</label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="backup-days" 
+                                       name="days" 
+                                       value="{{ config.backup_retention_days or 7 }}" 
+                                       min="1" 
+                                       max="90">
+                            </div>
+                            <div class="col-4 d-flex align-items-end">
+                                <button type="submit" 
+                                        class="cleanup-btn btn btn-info" 
+                                        data-cleanup-action="backups"
+                                        data-original-text="Bereinigen">
+                                    <i class="fas fa-trash-alt"></i> Bereinigen
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i>
+                            Bewahrt mindestens die neuesten 3 Backups auf
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vollständige Bereinigung -->
+        <div class="col-lg-6 col-md-12 mb-4">
+            <div class="card housekeeping-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-magic text-danger"></i>
+                        Vollständige Bereinigung
+                    </h5>
+                    <span class="badge bg-danger">Erweitert</span>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        Führt alle Bereinigungsschritte in optimaler Reihenfolge durch.
+                    </p>
+                    
+                    <form action="{{ url_for('housekeeping.full_cleanup') }}" method="post">
+                        <button type="submit" 
+                                class="cleanup-btn btn btn-danger" 
+                                data-cleanup-action="full"
+                                data-original-text="Vollständige Bereinigung"
+                                onclick="return confirm('Möchten Sie wirklich eine vollständige Bereinigung durchführen?')">
+                            <i class="fas fa-rocket"></i> Vollständige Bereinigung
+                        </button>
+                    </form>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Führt nacheinander alle Bereinigungsschritte durch
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Konfiguration -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cogs text-secondary"></i>
+                        Aktuelle Konfiguration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <strong>Artikel-Aufbewahrung:</strong><br>
+                            <span class="text-muted">{{ config.cleanup_days or 'Nicht konfiguriert' }} Tage</span>
+                        </div>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <strong>Backup-Aufbewahrung:</strong><br>
+                            <span class="text-muted">{{ config.backup_retention_days or 'Nicht konfiguriert' }} Tage</span>
+                        </div>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <strong>Auto-Backup:</strong><br>
+                            <span class="text-muted">
+                                {% if config.auto_backup %}
+                                    <i class="fas fa-check text-success"></i> Aktiviert
+                                {% else %}
+                                    <i class="fas fa-times text-danger"></i> Deaktiviert
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <strong>Max. Artikel/Quelle:</strong><br>
+                            <span class="text-muted">{{ config.max_articles_per_source or 'Unbegrenzt' }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <a href="{{ url_for('housekeeping.config_page') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-edit"></i> Konfiguration bearbeiten
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('housekeeping.housekeeping_js') }}"></script>
+{% endblock %}

@@ -77,7 +77,8 @@ class JSONManager:
             temp_filepath = f"{filepath}.tmp"
             try:
                 with open(temp_filepath, 'w', encoding='utf-8') as f:
-                    json.dump(data, f, indent=2, ensure_ascii=False)
+                    # Kompakte Speicherung für bessere Performance (Standard)
+                    json.dump(data, f, separators=(',', ':'), ensure_ascii=False)
                 
                 # Atomic move
                 os.replace(temp_filepath, filepath)

@@ -12,7 +12,20 @@ logger = logging.getLogger(__name__)
 
 @bp.route('/')
 def index():
-    """Homepage mit Dashboard-Übersicht"""
+    """Homepage mit Artikelübersicht statt Dashboard"""
+    try:
+        # Redirect zur Artikelseite
+        from flask import redirect, url_for
+        return redirect(url_for('articles.articles_dashboard'))
+    except Exception as e:
+        logger.error(f"Fehler beim Weiterleiten zur Artikelseite: {e}")
+        # Fallback zum alten Dashboard
+        return dashboard()
+
+
+@bp.route('/dashboard')
+def dashboard():
+    """Dashboard-Übersicht (ehemals Homepage)"""
     try:
         # Statistiken laden
         articles = json_manager.read('articles')

@@ -13,6 +13,10 @@ from .main import bp as main_bp
 from .articles import bp as articles_bp
 from .telegram import bp as telegram_bp
 from .tasks import bp as tasks_bp
+# from .tweets import bp as tweets_bp  # Temporär deaktiviert - benötigt OpenAI
+from .housekeeping import housekeeping_bp
+from .monitoring import bp as monitoring_bp
+from .status import bp as status_bp
 
 
 def register_routes(app: Flask):
@@ -20,7 +24,11 @@ def register_routes(app: Flask):
     app.register_blueprint(main_bp)
     app.register_blueprint(articles_bp)
     app.register_blueprint(telegram_bp)
-    app.register_blueprint(tasks_bp)    # Main dashboard route (updated to include new features)
+    app.register_blueprint(tasks_bp)
+    # app.register_blueprint(tweets_bp)  # Temporär deaktiviert - benötigt OpenAI
+    app.register_blueprint(housekeeping_bp)
+    app.register_blueprint(monitoring_bp)
+    app.register_blueprint(status_bp)    # Main dashboard route (updated to include new features)
     from flask import render_template_string
     
     @app.route('/')

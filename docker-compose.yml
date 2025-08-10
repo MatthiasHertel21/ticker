@@ -18,6 +18,14 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      # Housekeeping Configuration
+      - CLEANUP_DAYS=3
+      - BACKUP_RETENTION_DAYS=7
+      - AUTO_BACKUP=true
+      - HOUSEKEEPING_ENABLED=true
+      - AUTO_CLEANUP_ARTICLES=true
+      - AUTO_CLEANUP_MEDIA=true
+      - MAX_ARTICLES_PER_SOURCE=100
     env_file:
       - .env
     depends_on:
@@ -51,6 +59,14 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      # Housekeeping Configuration
+      - CLEANUP_DAYS=3
+      - BACKUP_RETENTION_DAYS=7
+      - AUTO_BACKUP=true
+      - HOUSEKEEPING_ENABLED=true
+      - AUTO_CLEANUP_ARTICLES=true
+      - AUTO_CLEANUP_MEDIA=true
+      - MAX_ARTICLES_PER_SOURCE=100
     env_file:
       - .env
     depends_on:
@@ -72,6 +88,14 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      # Housekeeping Configuration
+      - CLEANUP_DAYS=3
+      - BACKUP_RETENTION_DAYS=7
+      - AUTO_BACKUP=true
+      - HOUSEKEEPING_ENABLED=true
+      - AUTO_CLEANUP_ARTICLES=true
+      - AUTO_CLEANUP_MEDIA=true
+      - MAX_ARTICLES_PER_SOURCE=100
     env_file:
       - .env
     depends_on:

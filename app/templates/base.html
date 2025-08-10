@@ -27,7 +27,7 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-custom sticky-top">
         <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard') }}">
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('articles.articles_dashboard') }}">
                 <i class="bi bi-newspaper me-2"></i>
                 News ({{ global_article_count }})
             </a>
@@ -39,13 +39,28 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('dashboard') }}">
-                            <i class="bi bi-house me-1"></i>Dashboard
+                        <a class="nav-link" href="{{ url_for('articles.articles_dashboard') }}">
+                            <i class="bi bi-newspaper me-1"></i>Artikel
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.dashboard') }}">
+                            <i class="bi bi-speedometer2 me-1"></i>Dashboard
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('telegram.telegram_dashboard') }}">
                             <i class="bi bi-telegram me-1"></i>Telegram
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('monitoring.scraping_overview') }}">
+                            <i class="bi bi-clock-history me-1"></i>Logs
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('housekeeping.config_page') }}">
+                            <i class="bi bi-gear me-1"></i>Housekeeping
                         </a>
                     </li>
                     <li class="nav-item">
@@ -58,11 +73,21 @@
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="bi bi-gear me-1"></i>Einstellungen
+                            <i class="bi bi-gear me-1"></i>Aktionen
                         </a>
                         <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="startScraping()">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Scraping starten
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/api/status/telethon" target="_blank">
+                                <i class="bi bi-info-circle me-2"></i>Telethon Status
+                            </a></li>
                             <li><a class="dropdown-item" href="/health">
                                 <i class="bi bi-activity me-2"></i>System Status
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('housekeeping.config_page') }}">
+                                <i class="bi bi-broom me-2"></i>Housekeeping
                             </a></li>
                             {% if request.endpoint == 'articles.articles_dashboard' %}
                             <li><hr class="dropdown-divider"></li>
@@ -110,6 +135,9 @@
                         </a>
                         <a class="nav-link" href="{{ url_for('articles.articles_dashboard') }}">
                             <i class="bi bi-file-text"></i>Artikel verwalten
+                        </a>
+                        <a class="nav-link" href="{{ url_for('housekeeping.dashboard') }}">
+                            <i class="bi bi-broom"></i>Housekeeping
                         </a>
                         <hr>
                         <small class="text-muted px-3 mb-2">AKTIONEN</small>
@@ -184,6 +212,78 @@
     
     <!-- Custom JavaScript -->
     <script src="{{ url_for('static', filename='js/news-aggregator.js') }}"></script>
+    
+    <!-- Global Actions Script -->
+    <script>
+        function startScraping() {
+            // Show loading toast
+            showToast('info', 'Scraping wird gestartet...', 'Telethon-Scraping wird ausgeführt');
+            
+            fetch('/tasks/telethon/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('success', 'Scraping gestartet!', data.message);
+                    // Reload page after 3 seconds to show new articles
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                } else {
+                    showToast('error', 'Fehler beim Scraping', data.error || 'Unbekannter Fehler');
+                }
+            })
+            .catch(error => {
+                console.error('Scraping-Fehler:', error);
+                showToast('error', 'Netzwerk-Fehler', 'Verbindung zum Server fehlgeschlagen');
+            });
+        }
+        
+        function showToast(type, title, message) {
+            // Create toast if not exists
+            let toastContainer = document.getElementById('toastContainer');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.id = 'toastContainer';
+                toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+                toastContainer.style.zIndex = '1055';
+                document.body.appendChild(toastContainer);
+            }
+            
+            const toastId = 'toast-' + Date.now();
+            const bgClass = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : 'bg-info';
+            
+            const toastHtml = `
+                <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <strong>${title}</strong><br>
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+            
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            
+            const toastElement = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastElement, {
+                autohide: true,
+                delay: type === 'info' ? 10000 : 5000
+            });
+            toast.show();
+            
+            // Remove toast after it's hidden
+            toastElement.addEventListener('hidden.bs.toast', () => {
+                toastElement.remove();
+            });
+        }
+    </script>
     
     <!-- Theme Toggle Script -->
     <script>

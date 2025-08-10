@@ -23,13 +23,32 @@ _global_loop = None
 def get_or_create_event_loop():
     """Gibt den globalen Event Loop zurück oder erstellt einen neuen"""
     global _global_loop
-    if _global_loop is None or _global_loop.is_closed():
+    
+    try:
+        # Versuche den aktuellen Event Loop zu bekommen
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            raise RuntimeError("Event loop is closed")
+        return loop
+    except RuntimeError:
+        # Erstelle einen neuen Event Loop wenn keiner existiert
         try:
-            _global_loop = asyncio.get_event_loop()
-        except RuntimeError:
-            _global_loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(_global_loop)
-    return _global_loop
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            _global_loop = loop
+            logger.info("Neuer Event Loop für Telethon erstellt")
+            return loop
+        except Exception as e:
+            logger.error(f"Fehler beim Erstellen des Event Loops: {e}")
+            # Fallback: Erstelle minimal Event Loop
+            import threading
+            if threading.current_thread() == threading.main_thread():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                return loop
+            else:
+                # In Worker Thread: Nutze run_until_complete Wrapper
+                return None
 
 
 class TelethonChannelScraper:
@@ -189,35 +208,29 @@ class TelethonChannelScraper:
             import os
             session_file = f"{self.session_name}.session"
             
-            if os.path.exists(session_file):
-                logger.info("Lade existierende Telethon Session")
-                
-                # Hole Event Loop
-                loop = get_or_create_event_loop()
-                
-                # Erstelle Client mit existierender Session
-                # Wir brauchen API-Daten aus der Umgebung oder Config
-                api_id = os.environ.get('TELEGRAM_API_ID', '23430132')
-                api_hash = os.environ.get('TELEGRAM_API_HASH', 'c321915c8114ca746036e0824acf57a9')
-                
-                self.client = TelegramClient(
-                    self.session_name,
-                    int(api_id),
-                    api_hash,
-                    loop=loop
-                )
-                
-                # Verbinde
-                loop.run_until_complete(self.client.connect())
-                
-                logger.info("Session erfolgreich geladen")
-                return True
-            else:
-                logger.info("Keine existierende Session gefunden")
+            if not os.path.exists(session_file):
+                logger.info("Keine existierende Telethon-Session gefunden")
                 return False
-                
+            
+            # API-Konfiguration laden
+            api_id = os.getenv('TELEGRAM_API_ID')
+            api_hash = os.getenv('TELEGRAM_API_HASH')
+            
+            if not all([api_id, api_hash]):
+                logger.error("TELEGRAM_API_ID oder TELEGRAM_API_HASH nicht gesetzt")
+                return False
+            
+            logger.info(f"Lade existierende Telethon-Session: {session_file}")
+            
+            # Client mit existierender Session erstellen - OHNE Event Loop
+            self.client = TelegramClient(self.session_name, int(api_id), api_hash)
+            
+            logger.info("Telethon-Session erfolgreich geladen")
+            return True
+            
         except Exception as e:
             logger.error(f"Fehler beim Laden der Session: {e}")
+            self.client = None
             return False
 
     def scrape_channels(self, limit=10):
@@ -231,11 +244,20 @@ class TelethonChannelScraper:
                     logger.error("Keine gültige Telethon-Session verfügbar")
                     return 0
             
-            # Verwende den Event Loop
-            loop = get_or_create_event_loop()
-            
-            # Führe async Scraping aus
-            new_articles = loop.run_until_complete(self._scrape_channels(limit))
+            # Event Loop Handling für Celery Worker
+            try:
+                # Verwende asyncio.run für bessere Isolation
+                new_articles = asyncio.run(self._scrape_channels(limit))
+            except RuntimeError as e:
+                if "This event loop is already running" in str(e):
+                    # Fallback für bereits laufende Event Loops
+                    logger.warning("Event Loop bereits aktiv, verwende Thread-Pool")
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(asyncio.run, self._scrape_channels(limit))
+                        new_articles = future.result(timeout=300)
+                else:
+                    raise e
             
             logger.info(f"Synchrones Telethon-Scraping abgeschlossen: {new_articles} neue Artikel")
             return new_articles
@@ -249,6 +271,10 @@ class TelethonChannelScraper:
         try:
             if not self.client:
                 return 0
+            
+            # Client starten, wenn nicht bereits gestartet
+            if not self.client.is_connected():
+                await self.client.start()
             
             # Lade konfigurierte Kanäle aus sources.json
             sources = json_manager.read('sources')

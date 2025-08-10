@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}Housekeeping Konfiguration{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="mb-4">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{{ url_for('housekeeping.dashboard') }}">
+                                <i class="fas fa-broom"></i> Housekeeping
+                            </a>
+                        </li>
+                        <li class="breadcrumb-item active">Konfiguration</li>
+                    </ol>
+                </nav>
+                
+                <h1 class="h3">
+                    <i class="fas fa-cogs text-primary"></i>
+                    Housekeeping Konfiguration
+                </h1>
+                <p class="text-muted">
+                    Einstellungen für automatische Datenbereinigung und Speicherverwaltung
+                </p>
+            </div>
+
+            <!-- Aktuelle Konfiguration -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle text-info"></i>
+                        Aktuelle Einstellungen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="border-start border-primary ps-3">
+                                <h6 class="fw-bold">Artikel-Aufbewahrung</h6>
+                                <p class="mb-1">
+                                    <span class="h5 text-primary">{{ config.cleanup_days or 30 }}</span> Tage
+                                </p>
+                                <small class="text-muted">
+                                    Artikel älter als dieses Datum werden automatisch entfernt
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="border-start border-success ps-3">
+                                <h6 class="fw-bold">Backup-Aufbewahrung</h6>
+                                <p class="mb-1">
+                                    <span class="h5 text-success">{{ config.backup_retention_days or 7 }}</span> Tage
+                                </p>
+                                <small class="text-muted">
+                                    Backup-Files älter als dieses Datum werden entfernt
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="border-start border-info ps-3">
+                                <h6 class="fw-bold">Auto-Backup</h6>
+                                <p class="mb-1">
+                                    {% if config.auto_backup %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check"></i> Aktiviert
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-times"></i> Deaktiviert
+                                        </span>
+                                    {% endif %}
+                                </p>
+                                <small class="text-muted">
+                                    Automatische Backups vor Änderungen
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="border-start border-warning ps-3">
+                                <h6 class="fw-bold">Max. Artikel pro Quelle</h6>
+                                <p class="mb-1">
+                                    <span class="h5 text-warning">{{ config.max_articles_per_source or '∞' }}</span>
+                                </p>
+                                <small class="text-muted">
+                                    Maximale Anzahl Artikel pro RSS/Telegram-Quelle
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Umgebungsvariablen -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-terminal text-success"></i>
+                        Konfiguration über Umgebungsvariablen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        Die Housekeeping-Einstellungen werden über Docker-Umgebungsvariablen konfiguriert.
+                        Bearbeiten Sie die <code>.env</code>-Datei oder <code>docker-compose.yml</code>:
+                    </p>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Variable</th>
+                                    <th>Aktueller Wert</th>
+                                    <th>Beschreibung</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>CLEANUP_DAYS</code></td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ config.cleanup_days or 30 }}</span>
+                                    </td>
+                                    <td>Artikel-Aufbewahrungszeit in Tagen</td>
+                                </tr>
+                                <tr>
+                                    <td><code>BACKUP_RETENTION_DAYS</code></td>
+                                    <td>
+                                        <span class="badge bg-success">{{ config.backup_retention_days or 7 }}</span>
+                                    </td>
+                                    <td>Backup-Aufbewahrungszeit in Tagen</td>
+                                </tr>
+                                <tr>
+                                    <td><code>AUTO_BACKUP</code></td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if config.auto_backup else 'danger' }}">
+                                            {{ 'true' if config.auto_backup else 'false' }}
+                                        </span>
+                                    </td>
+                                    <td>Automatische Backups aktivieren</td>
+                                </tr>
+                                <tr>
+                                    <td><code>MAX_ARTICLES_PER_SOURCE</code></td>
+                                    <td>
+                                        <span class="badge bg-warning">{{ config.max_articles_per_source or 'unbegrenzt' }}</span>
+                                    </td>
+                                    <td>Maximale Artikel pro Quelle</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Beispiel-Konfiguration -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-code text-secondary"></i>
+                        Beispiel Docker-Compose Konfiguration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        Fügen Sie diese Umgebungsvariablen zu Ihrer <code>docker-compose.yml</code> hinzu:
+                    </p>
+                    
+                    <pre class="bg-light p-3 rounded"><code>services:
+  web:
+    environment:
+      # Housekeeping Konfiguration
+      - CLEANUP_DAYS=30
+      - BACKUP_RETENTION_DAYS=7
+      - AUTO_BACKUP=true
+      - MAX_ARTICLES_PER_SOURCE=100
+      
+      # Weitere Optionen
+      - SCRAPING_INTERVAL_MINUTES=30
+      - ARTICLES_PER_PAGE=20</code></pre>
+                </div>
+            </div>
+
+            <!-- Empfohlene Einstellungen -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb text-warning"></i>
+                        Empfohlene Einstellungen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-success">
+                                <i class="fas fa-desktop"></i> Desktop/Server
+                            </h6>
+                            <ul class="list-unstyled mb-3">
+                                <li><strong>CLEANUP_DAYS:</strong> 60-90</li>
+                                <li><strong>BACKUP_RETENTION_DAYS:</strong> 14</li>
+                                <li><strong>MAX_ARTICLES_PER_SOURCE:</strong> 200</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-info">
+                                <i class="fas fa-cloud"></i> VPS/Cloud
+                            </h6>
+                            <ul class="list-unstyled mb-3">
+                                <li><strong>CLEANUP_DAYS:</strong> 30</li>
+                                <li><strong>BACKUP_RETENTION_DAYS:</strong> 7</li>
+                                <li><strong>MAX_ARTICLES_PER_SOURCE:</strong> 100</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Tipp:</strong> Starten Sie mit konservativen Werten und passen Sie diese basierend 
+                        auf Ihrem Speicherplatz und Ihren Anforderungen an.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Automatisierung -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-robot text-purple"></i>
+                        Automatische Bereinigung
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        Sie können regelmäßige Bereinigungen über Cron-Jobs automatisieren:
+                    </p>
+                    
+                    <h6 class="fw-bold">Beispiel Cron-Einträge:</h6>
+                    <pre class="bg-light p-3 rounded"><code># Täglich um 2:00 Uhr - Vollständige Bereinigung
+0 2 * * * docker exec ticker_web_1 python -c "from app.tasks.housekeeping_tasks import full_cleanup_task; full_cleanup_task.delay()"
+
+# Wöchentlich sonntags um 3:00 Uhr - Media-Bereinigung
+0 3 * * 0 docker exec ticker_web_1 python -c "from app.tasks.housekeeping_tasks import cleanup_orphaned_media_task; cleanup_orphaned_media_task.delay()"</code></pre>
+                    
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Hinweis:</strong> Stellen Sie sicher, dass Celery Worker läuft, 
+                        bevor Sie automatische Tasks einrichten.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="text-center">
+                <a href="{{ url_for('housekeeping.dashboard') }}" class="btn btn-primary">
+                    <i class="fas fa-arrow-left"></i> Zurück zum Dashboard
+                </a>
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-home"></i> Hauptmenü
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

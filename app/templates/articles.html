@@ -152,17 +152,20 @@
                     {% if article.content %}
                     <div class="article-content mb-3">
                         {% set clean_content = article.content | render_telegram_content_clean %}
+                        {% set is_long = article.content | length > 300 %}
                         {% if clean_content %}
                         <div class="content-preview">
-                            {{ clean_content[:300] | safe }}
-                            {% if clean_content|length > 300 %}
-                            <span class="text-muted">...</span>
-                            <button class="btn btn-link btn-sm p-0 ms-1" onclick="toggleFullContent(this)">
-                                <i class="bi bi-chevron-down me-1"></i>Mehr anzeigen
-                            </button>
+                            {% if is_long %}
+                                {{ clean_content[:300] | safe }}
+                                <span class="text-muted">...</span>
+                                <button class="btn btn-link btn-sm p-0 ms-1" onclick="toggleFullContent(this)">
+                                    <i class="bi bi-chevron-down me-1"></i>Mehr anzeigen
+                                </button>
+                            {% else %}
+                                {{ clean_content | safe }}
                             {% endif %}
                         </div>
-                        {% if clean_content|length > 300 %}
+                        {% if is_long %}
                         <div class="full-content d-none mt-2">
                             <div class="border-top pt-2">
                                 {{ clean_content | safe }}
@@ -239,9 +242,9 @@ function deleteArticle(articleId, button) {
 }
 
 function toggleFullContent(button) {
-    const card = button.closest('.card-body');
-    const preview = card.querySelector('.content-preview');
-    const fullContent = card.querySelector('.full-content');
+    const articleCard = button.closest('.article-card');
+    const preview = articleCard.querySelector('.content-preview');
+    const fullContent = articleCard.querySelector('.full-content');
     
     if (fullContent.classList.contains('d-none')) {
         fullContent.classList.remove('d-none');

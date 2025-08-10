@@ -39,7 +39,13 @@ class Config:
     # Scraping Configuration
     SCRAPING_INTERVAL_MINUTES = int(os.environ.get('SCRAPING_INTERVAL_MINUTES', '30'))
     MAX_ARTICLES_PER_SOURCE = int(os.environ.get('MAX_ARTICLES_PER_SOURCE', '50'))
-    CLEANUP_DAYS = int(os.environ.get('CLEANUP_DAYS', '30'))
+    CLEANUP_DAYS = int(os.environ.get('CLEANUP_DAYS', '3'))  # Standard: 3 Tage
+    
+    # Housekeeping Configuration
+    HOUSEKEEPING_ENABLED = os.environ.get('HOUSEKEEPING_ENABLED', 'true').lower() == 'true'
+    AUTO_CLEANUP_ARTICLES = os.environ.get('AUTO_CLEANUP_ARTICLES', 'true').lower() == 'true'
+    AUTO_CLEANUP_MEDIA = os.environ.get('AUTO_CLEANUP_MEDIA', 'true').lower() == 'true'
+    CLEANUP_SCHEDULE_CRON = os.environ.get('CLEANUP_SCHEDULE_CRON', '0 2 * * *')  # Daily at 2 AM
     
     # AI Configuration
     RELEVANCE_THRESHOLD = float(os.environ.get('RELEVANCE_THRESHOLD', '0.7'))
