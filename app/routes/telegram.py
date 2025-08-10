@@ -299,6 +299,69 @@ def telethon_scrape():
         }), 500
 
 
+@bp.route('/test-bot', methods=['GET'])
+def test_bot():
+    """Teste Telegram Bot-Verbindung"""
+    try:
+        from config.config import Config
+        from app.scrapers.telegram_bot import TelegramChannelMonitor
+        
+        # Hole Bot Token aus Config
+        bot_token = getattr(Config, 'TELEGRAM_BOT_TOKEN', None)
+        
+        if not bot_token:
+            return jsonify({
+                'success': False,
+                'error': 'Telegram Bot Token nicht konfiguriert. Bitte TELEGRAM_BOT_TOKEN in Umgebungsvariablen setzen.'
+            })
+        
+        # Erstelle Monitor und teste Verbindung
+        monitor = TelegramChannelMonitor(bot_token)
+        
+        # Einfacher Test: Versuche Bot-Info abzurufen
+        async def test_bot_connection():
+            try:
+                bot_info = await monitor.bot.get_me()
+                return bot_info
+            except Exception as e:
+                raise e
+        
+        # Führe Test aus mit Event Loop Handling
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Wenn bereits ein Event Loop läuft, nutze Thread-Pool
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, test_bot_connection())
+                    bot_info = future.result(timeout=10)
+            else:
+                bot_info = asyncio.run(test_bot_connection())
+        except RuntimeError:
+            # Fallback wenn kein Event Loop verfügbar
+            bot_info = asyncio.run(test_bot_connection())
+        
+        if bot_info:
+            return jsonify({
+                'success': True,
+                'bot_info': f"Bot @{bot_info.username} ({bot_info.first_name})",
+                'message': 'Bot-Verbindung erfolgreich'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Bot-Verbindung fehlgeschlagen - keine Bot-Info erhalten'
+            })
+            
+    except Exception as e:
+        logger.error(f"Bot-Test fehlgeschlagen: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Bot-Test Fehler: {str(e)}'
+        })
+
+
 @bp.route('/manual-sync', methods=['POST'])
 def manual_sync():
     """Manueller Sync aller Telegram-Channels"""

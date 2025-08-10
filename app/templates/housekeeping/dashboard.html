@@ -2,6 +2,8 @@
 
 {% block title %}Housekeeping Dashboard{% endblock %}
 
+{% block page_header %}{% endblock %}
+
 {% block extra_css %}
 <style>
 .housekeeping-card {
@@ -84,7 +86,7 @@
                 </div>
                 <div class="text-end">
                     <small class="text-muted d-block">
-                        Letzte Aktualisierung: <span id="stats-timestamp">{{ current_time.strftime('%H:%M:%S') }}</span>
+                        Letzte Aktualisierung: <span id="stats-timestamp">{{ current_time.strftime('%H:%M:%S') }}</span> CET
                     </small>
                     <button class="btn btn-outline-primary btn-sm" onclick="housekeepingManager.refreshStorageStats()">
                         <i class="fas fa-sync-alt"></i> Aktualisieren
@@ -96,6 +98,32 @@
 
     <!-- Alert Container -->
     <div class="alert-container"></div>
+
+    <!-- Automatische Bereinigung Toggle -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title mb-1">
+                                <i class="fas fa-robot me-2"></i>Automatische Bereinigung
+                            </h5>
+                            <p class="text-muted mb-0">Automatische Bereinigung von Artikeln und Media-Dateien aktivieren/deaktivieren</p>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="autoCleanupToggle" 
+                                   {{ 'checked' if config.housekeeping_enabled else '' }}
+                                   onchange="housekeepingManager.toggleAutoCleanup(this.checked)">
+                            <label class="form-check-label" for="autoCleanupToggle">
+                                <span id="toggleLabel">{{ 'Aktiviert' if config.housekeeping_enabled else 'Deaktiviert' }}</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Speicher-Übersicht -->
     {% if storage_stats %}
@@ -336,9 +364,10 @@
                     </div>
                     
                     <div class="mt-3">
-                        <a href="{{ url_for('housekeeping.config_page') }}" class="btn btn-outline-secondary">
-                            <i class="fas fa-edit"></i> Konfiguration bearbeiten
-                        </a>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i> 
+                            Konfiguration kann über Umgebungsvariablen angepasst werden
+                        </small>
                     </div>
                 </div>
             </div>
@@ -348,5 +377,108 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('housekeeping.housekeeping_js') }}"></script>
+<script>
+class HousekeepingManager {
+    constructor() {
+        this.init();
+    }
+    
+    init() {
+        console.log('Housekeeping Manager initialized');
+    }
+    
+    toggleAutoCleanup(enabled) {
+        fetch('/housekeeping/toggle-auto-cleanup', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ enabled: enabled })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('toggleLabel').textContent = enabled ? 'Aktiviert' : 'Deaktiviert';
+                this.showAlert('success', data.message);
+            } else {
+                this.showAlert('danger', data.error || 'Fehler beim Ändern der Einstellung');
+                // Toggle zurücksetzen bei Fehler
+                document.getElementById('autoCleanupToggle').checked = !enabled;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            this.showAlert('danger', 'Netzwerkfehler beim Ändern der Einstellung');
+            // Toggle zurücksetzen bei Fehler
+            document.getElementById('autoCleanupToggle').checked = !enabled;
+        });
+    }
+    
+    refreshStorageStats() {
+        fetch('/housekeeping/api/storage-stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.updateStats(data.data);
+                this.showAlert('success', 'Statistiken aktualisiert');
+                // Zeige CET-Zeit an
+                const cetTime = new Date().toLocaleTimeString('de-DE', {
+                    timeZone: 'Europe/Berlin',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                document.getElementById('stats-timestamp').textContent = cetTime;
+            } else {
+                this.showAlert('danger', 'Fehler beim Laden der Statistiken');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            this.showAlert('danger', 'Netzwerkfehler beim Laden der Statistiken');
+        });
+    }
+    
+    updateStats(stats) {
+        // Update UI mit neuen Statistiken
+        if (stats.articles) {
+            document.getElementById('articles-count').textContent = stats.articles.count;
+            document.getElementById('articles-size').textContent = stats.articles.size_mb + ' MB';
+        }
+        if (stats.media) {
+            document.getElementById('media-count').textContent = stats.media.count;
+            document.getElementById('media-size').textContent = stats.media.size_mb + ' MB';
+        }
+        if (stats.backups) {
+            document.getElementById('backup-count').textContent = stats.backups.count;
+            document.getElementById('backup-size').textContent = stats.backups.size_mb + ' MB';
+        }
+        if (stats.total) {
+            document.getElementById('total-size').textContent = stats.total.size_mb + ' MB';
+        }
+    }
+    
+    showAlert(type, message) {
+        const alertContainer = document.querySelector('.alert-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        alertContainer.appendChild(alert);
+        
+        // Auto-remove nach 5 Sekunden
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+}
+
+// Initialize manager
+const housekeepingManager = new HousekeepingManager();
+</script>
 {% endblock %}

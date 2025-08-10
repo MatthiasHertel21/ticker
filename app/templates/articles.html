@@ -2,8 +2,6 @@
 
 {% block title %}News ({{ articles|length }}){% endblock %}
 
-{% block page_subtitle %}{% endblock %}
-
 {% block page_header %}{% endblock %}
 
 {% block content %}
@@ -24,43 +22,42 @@
             <div class="article-card mb-3" data-article-id="{{ article.id }}">
                 <div class="article-body">
                     <!-- Article Header with Date, Channel, Age -->
-                    <div class="d-flex justify-content-between align-items-start mb-0 p-3 bg-primary bg-opacity-10">
-                        <div class="article-meta flex-grow-1">
-                            <div class="d-flex align-items-start gap-2 mb-0">
-                                {% if article.url %}
-                                <a href="{{ article.url }}" target="_blank" class="text-decoration-none">
-                                    <span class="badge bg-primary">{{ (article.source or article.channel) | clean_channel_name }}</span>
-                                </a>
-                                {% else %}
+                    <div class="d-flex justify-content-between align-items-start mb-0 px-3 py-2 bg-secondary bg-opacity-25">
+                        <!-- Tags Container -->
+                        <div class="d-flex align-items-start gap-2 mb-0">
+                            {% if article.url %}
+                            <a href="{{ article.url }}" target="_blank" class="text-decoration-none">
                                 <span class="badge bg-primary">{{ (article.source or article.channel) | clean_channel_name }}</span>
-                                {% endif %}
-                                {% if article.message_age %}
-                                <span class="badge bg-secondary">{{ article.message_age | shorten_time_tag }}</span>
-                                {% endif %}
-                            </div>
+                            </a>
+                            {% else %}
+                            <span class="badge bg-primary">{{ (article.source or article.channel) | clean_channel_name }}</span>
+                            {% endif %}
+                            {% if article.message_age %}
+                            <span class="badge bg-secondary">{{ article.message_age | shorten_time_tag }}</span>
+                            {% endif %}
                         </div>
                         
                         <!-- Rating Buttons -->
-                        <div class="rating-buttons-container">
-                            <button class="btn btn-sm btn-outline-primary {{ 'active' if article.relevance_score == 'favorite' else '' }}" 
+                        <div class="rating-buttons-container d-flex align-items-start">
+                            <button class="btn btn-sm btn-outline-secondary {{ 'active' if article.relevance_score == 'favorite' else '' }}" 
                                     onclick="updateRating('{{ article.id }}', 'favorite', this)" 
                                     title="Als Favorit markieren">
-                                <i class="bi bi-heart-fill"></i>
+                                <i class="bi bi-heart-fill text-muted"></i>
                             </button><!--
-                            --><button class="btn btn-sm btn-outline-danger {{ 'active' if article.relevance_score == 'spam' else '' }}" 
+                            --><button class="btn btn-sm btn-outline-secondary {{ 'active' if article.relevance_score == 'spam' else '' }}" 
                                     onclick="updateRating('{{ article.id }}', 'spam', this)" 
                                     title="Als Spam markieren">
-                                <i class="bi bi-trash-fill"></i>
+                                <i class="bi bi-trash-fill text-muted"></i>
                             </button><!--
                             --><button class="btn btn-sm btn-outline-secondary" 
                                     onclick="deleteArticle('{{ article.id }}', this)" 
                                     title="Artikel löschen">
-                                <i class="bi bi-x-lg"></i>
+                                <i class="bi bi-x-lg text-muted"></i>
                             </button>
                         </div>
                     </div>
 
-                    <div class="p-3">
+                    <div class="p-4 pt-0">
                     <!-- Article Title -->
                     {% if article.title %}
                     <h5 class="article-title mb-2">
@@ -74,7 +71,7 @@
                     </h5>
                     {% endif %}
 
-                    <!-- Link Previews (loaded on demand) -->
+                    <!-- Link Previews (automatically loaded) -->
                     {% if article.content and 'http' in article.content %}
                     <div class="link-previews mb-3">
                         {% if article.link_previews %}
@@ -140,10 +137,10 @@
                             {% endfor %}
                         </div>
                         {% else %}
-                        <button class="btn btn-sm btn-outline-info" onclick="loadLinkPreview('{{ article.id }}', this)">
-                            <i class="bi bi-link-45deg"></i> Website-Vorschau laden
-                        </button>
-                        <div id="preview-{{ article.id }}" class="preview-container d-none mt-2"></div>
+                        <!-- Auto-load previews for articles without them -->
+                        <div id="preview-{{ article.id }}" class="preview-container mt-2" 
+                             data-auto-load="true" 
+                             data-article-id="{{ article.id }}"></div>
                         {% endif %}
                     </div>
                     {% endif %}
@@ -157,7 +154,6 @@
                         <div class="content-preview">
                             {% if is_long %}
                                 {{ clean_content[:300] | safe }}
-                                <span class="text-muted">...</span>
                                 <button class="btn btn-link btn-sm p-0 ms-1" onclick="toggleFullContent(this)">
                                     <i class="bi bi-chevron-down me-1"></i>Mehr anzeigen
                                 </button>
@@ -187,6 +183,27 @@
         <i class="bi bi-newspaper display-1 text-muted"></i>
         <h3 class="text-muted mt-3">Keine Artikel gefunden</h3>
         <p class="text-muted">Starte das Scraping, um neue Artikel zu sammeln.</p>
+    </div>
+    {% endif %}
+    
+    <!-- Paginierung -->
+    {% if articles %}
+    <div class="d-flex justify-content-between align-items-center mt-4 mb-3 px-3">
+        <div class="text-muted small">
+            Zeige {{ ((page-1) * per_page + 1) }} - {{ ((page-1) * per_page + articles|length) }} von {{ total_articles }} Artikeln
+        </div>
+        <div>
+            {% if page > 1 %}
+            <a href="?page={{ page - 1 }}&per_page={{ per_page }}" class="btn btn-outline-primary btn-sm me-2">
+                <i class="bi bi-chevron-left"></i> Vorherige
+            </a>
+            {% endif %}
+            {% if has_more %}
+            <a href="?page={{ page + 1 }}&per_page={{ per_page }}" class="btn btn-outline-primary btn-sm">
+                Nächste <i class="bi bi-chevron-right"></i>
+            </a>
+            {% endif %}
+        </div>
     </div>
     {% endif %}
 </div>
@@ -255,6 +272,104 @@ function toggleFullContent(button) {
         preview.style.display = 'block';
         button.innerHTML = '<i class="bi bi-chevron-down me-1"></i>Mehr anzeigen';
     }
+}
+
+// Auto-load previews for articles without them (max 10 to avoid server overload)
+document.addEventListener('DOMContentLoaded', function() {
+    const autoLoadContainers = document.querySelectorAll('[data-auto-load="true"]');
+    
+    // Load previews with a slight delay to not overwhelm the server
+    // Only load first 10 for performance
+    const maxAutoLoad = Math.min(autoLoadContainers.length, 10);
+    
+    for (let i = 0; i < maxAutoLoad; i++) {
+        setTimeout(() => {
+            loadPreviewForContainer(autoLoadContainers[i]);
+        }, i * 800); // 800ms delay between each request
+    }
+});
+
+function loadPreviewForContainer(container) {
+    const articleId = container.dataset.articleId;
+    
+    // Make AJAX request for link preview
+    fetch(`/articles/${articleId}/preview`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.previews && data.previews.length > 0) {
+                // Render previews
+                let html = '';
+                data.previews.forEach(preview => {
+                    if (preview.type === 'oembed' && preview.html) {
+                        // oEmbed mit HTML (Videos, Tweets, etc.)
+                        html += `
+                            <div class="link-preview-card border rounded p-3 mb-2 bg-light">
+                                <div class="embed-responsive mb-2">
+                                    ${preview.html}
+                                </div>
+                                ${preview.title ? `
+                                <h6 class="mb-1 fw-bold">
+                                    <a href="${preview.url}" target="_blank" class="text-decoration-none">
+                                        ${preview.title.substring(0, 80)}${preview.title.length > 80 ? '...' : ''}
+                                    </a>
+                                </h6>
+                                ` : ''}
+                                <div class="d-flex align-items-center text-muted small">
+                                    <i class="bi bi-lightning-fill me-1 text-warning"></i>
+                                    <span>Instant-Vorschau</span>
+                                    ${preview.site_name ? `<span class="ms-2">${preview.site_name}</span>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // Standard Meta Preview
+                        html += `
+                            <div class="link-preview-card border rounded p-3 mb-2 bg-light">
+                                <div class="row g-2">
+                                    ${preview.image ? `
+                                    <div class="col-auto">
+                                        <img src="${preview.image}" alt="Preview" 
+                                             class="rounded" style="width: 80px; height: 60px; object-fit: cover;">
+                                    </div>
+                                    ` : ''}
+                                    <div class="col">
+                                        <div class="link-preview-content">
+                                            ${preview.title ? `
+                                            <h6 class="mb-1 fw-bold">
+                                                <a href="${preview.url}" target="_blank" class="text-decoration-none">
+                                                    ${preview.title.substring(0, 80)}${preview.title.length > 80 ? '...' : ''}
+                                                </a>
+                                            </h6>
+                                            ` : ''}
+                                            ${preview.description ? `
+                                            <p class="mb-1 text-muted small">
+                                                ${preview.description.substring(0, 120)}${preview.description.length > 120 ? '...' : ''}
+                                            </p>
+                                            ` : ''}
+                                            <div class="d-flex align-items-center text-muted small">
+                                                ${preview.favicon ? `
+                                                <img src="${preview.favicon}" alt="Site" 
+                                                     class="me-1" style="width: 16px; height: 16px;">
+                                                ` : ''}
+                                                <span>${preview.site_name || preview.url.replace('https://', '').replace('http://', '')}</span>
+                                                ${preview.type === 'oembed' ? '<i class="bi bi-lightning-fill ms-1 text-warning" title="Schnell-Vorschau"></i>' : ''}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+                container.innerHTML = html;
+                container.classList.remove('d-none');
+            }
+            // If no previews found, simply don't show anything (container stays empty)
+        })
+        .catch(error => {
+            console.debug('No preview available for article:', articleId);
+            // Silently fail - no preview means no preview, no error message needed
+        });
 }
 
 function loadLinkPreview(articleId, button) {
@@ -361,11 +476,11 @@ function loadLinkPreview(articleId, button) {
 }
 
 .article-card {
-    border: none;
+    border: none !important;
     border-radius: 0;
     background: white;
     margin-bottom: 1rem;
-    box-shadow: none;
+    box-shadow: none !important;
 }
 
 .rating-buttons-container {
@@ -377,12 +492,14 @@ function loadLinkPreview(articleId, button) {
 .rating-buttons-container .btn {
     font-size: 0.85rem;
     margin: 0;
+    border: none !important;
     border-radius: 0.25rem;
     padding: 0.25rem 0.5rem;
     min-width: 2rem;
     display: inline-block;
     vertical-align: top;
     line-height: 1.2;
+    background: transparent !important;
 }
 
 /* Remove any borders/lines */
@@ -405,6 +522,21 @@ function loadLinkPreview(articleId, button) {
 .article-title {
     font-weight: 600;
     line-height: 1.3;
+    text-decoration: none !important;
+}
+
+/* Explizit verhindern, dass Text durchgestrichen wird */
+.article-card * {
+    text-decoration: none !important;
+}
+
+.article-card .article-title a {
+    text-decoration: none !important;
+}
+
+.article-card .content-preview,
+.article-card .full-content {
+    text-decoration: none !important;
 }
 
 .link-preview-card {

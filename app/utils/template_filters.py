@@ -189,6 +189,7 @@ def shorten_time_tag(time_str):
     # Mapping für Zeitkürzel
     time_mappings = {
         'last_hour': '1h',
+        'last_6_hours': '6h',
         'hours_ago': 'h',
         'last_day': '1d',
         'days_ago': 'd',

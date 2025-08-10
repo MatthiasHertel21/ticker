@@ -222,11 +222,44 @@ class TelethonChannelScraper:
             
             logger.info(f"Lade existierende Telethon-Session: {session_file}")
             
-            # Client mit existierender Session erstellen - OHNE Event Loop
-            self.client = TelegramClient(self.session_name, int(api_id), api_hash)
-            
-            logger.info("Telethon-Session erfolgreich geladen")
-            return True
+            # Event Loop für Session-Loading verwenden
+            try:
+                # Erstelle neuen Event Loop für diese Operation
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                # Client mit existierender Session erstellen
+                self.client = TelegramClient(self.session_name, int(api_id), api_hash, loop=loop)
+                
+                # Test-Verbindung
+                async def test_session():
+                    try:
+                        await self.client.connect()
+                        if await self.client.is_user_authorized():
+                            logger.info("Session erfolgreich validiert")
+                            return True
+                        else:
+                            logger.warning("Session nicht autorisiert")
+                            return False
+                    except Exception as e:
+                        logger.error(f"Session-Test fehlgeschlagen: {e}")
+                        return False
+                
+                # Synchron ausführen
+                is_valid = loop.run_until_complete(test_session())
+                
+                if not is_valid:
+                    logger.error("Session ist nicht gültig")
+                    self.client = None
+                    return False
+                
+                logger.info("Telethon-Session erfolgreich geladen und validiert")
+                return True
+                
+            except Exception as e:
+                logger.error(f"Fehler beim Session-Loading: {e}")
+                self.client = None
+                return False
             
         except Exception as e:
             logger.error(f"Fehler beim Laden der Session: {e}")
@@ -245,25 +278,145 @@ class TelethonChannelScraper:
                     return 0
             
             # Event Loop Handling für Celery Worker
+            # Verwende den gleichen Event Loop wie bei der Session-Erstellung
             try:
-                # Verwende asyncio.run für bessere Isolation
-                new_articles = asyncio.run(self._scrape_channels(limit))
-            except RuntimeError as e:
-                if "This event loop is already running" in str(e):
-                    # Fallback für bereits laufende Event Loops
-                    logger.warning("Event Loop bereits aktiv, verwende Thread-Pool")
+                # Verwende den Event Loop des Clients für Konsistenz
+                loop = self.client.loop
+                
+                # Führe das Scraping im Client-Event-Loop aus
+                new_articles = loop.run_until_complete(self._scrape_channels(limit))
+                
+            except Exception as e:
+                logger.error(f"Fehler beim Event-Loop-basierten Scraping: {e}")
+                # Fallback: Thread-basiertes Scraping
+                try:
                     import concurrent.futures
+                    import threading
+                    
+                    def run_in_thread():
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
+                        try:
+                            # Neuen Client mit neuem Loop erstellen
+                            return self._sync_scrape_fallback(limit, new_loop)
+                        finally:
+                            new_loop.close()
+                    
                     with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(asyncio.run, self._scrape_channels(limit))
+                        future = executor.submit(run_in_thread)
                         new_articles = future.result(timeout=300)
-                else:
-                    raise e
+                        
+                except Exception as fallback_error:
+                    logger.error(f"Auch Fallback-Scraping fehlgeschlagen: {fallback_error}")
+                    return 0
             
             logger.info(f"Synchrones Telethon-Scraping abgeschlossen: {new_articles} neue Artikel")
             return new_articles
             
         except Exception as e:
             logger.error(f"Fehler beim synchronen Telethon-Scraping: {e}")
+            return 0
+
+    def _sync_scrape_fallback(self, limit, loop):
+        """Fallback-Scraping mit neuem Event Loop"""
+        try:
+            # API-Konfiguration laden
+            api_id = os.getenv('TELEGRAM_API_ID')
+            api_hash = os.getenv('TELEGRAM_API_HASH')
+            
+            # Neuen Client für diesen Thread erstellen
+            client = TelegramClient(self.session_name, int(api_id), api_hash, loop=loop)
+            
+            async def scrape_with_new_client():
+                try:
+                    await client.start()
+                    if not await client.is_user_authorized():
+                        return 0
+                    
+                    # Lade konfigurierte Kanäle
+                    sources = json_manager.read('sources')
+                    channels = list(sources.get('sources', {}).keys())
+                    
+                    if not channels:
+                        logger.warning("Keine Kanäle in sources.json konfiguriert")
+                        return 0
+                    
+                    channels_to_scrape = channels[:limit] if limit else channels
+                    logger.info(f"Scrape {len(channels_to_scrape)} konfigurierte Kanäle: {channels_to_scrape}")
+                    
+                    total_new_articles = 0
+                    
+                    for channel_name in channels_to_scrape:
+                        try:
+                            logger.info(f"Scrape Kanal: {channel_name}")
+                            new_count = await self._scrape_single_channel_new(client, channel_name)
+                            total_new_articles += new_count
+                            
+                        except Exception as e:
+                            logger.warning(f"Fehler beim Scrapen von Kanal {channel_name}: {e}")
+                            continue
+                    
+                    return total_new_articles
+                    
+                finally:
+                    try:
+                        await client.disconnect()
+                    except:
+                        pass
+            
+            return loop.run_until_complete(scrape_with_new_client())
+            
+        except Exception as e:
+            logger.error(f"Fallback-Scraping fehlgeschlagen: {e}")
+            return 0
+
+    async def _scrape_single_channel_new(self, client, channel_name):
+        """Scrape einen einzelnen Kanal mit gegebenem Client"""
+        try:
+            # Hole Nachrichten vom Kanal
+            messages = await client.get_messages(channel_name, limit=20)
+            
+            new_articles = 0
+            one_hour_ago = datetime.now() - timedelta(hours=1)
+            
+            for message in messages:
+                if message.text and len(message.text.strip()) > 50:
+                    # Prüfe Alter der Nachricht
+                    message_age = "recent"
+                    if message.date:
+                        if message.date.replace(tzinfo=None) >= one_hour_ago:
+                            message_age = "last_hour"
+                        elif message.date.replace(tzinfo=None) >= datetime.now() - timedelta(hours=6):
+                            message_age = "last_6_hours"
+                        else:
+                            message_age = "older"
+                    
+                    # Erstelle Artikel-Objekt
+                    article = {
+                        'id': f"telegram_{channel_name}_{message.id}",
+                        'title': self._extract_title(message.text),
+                        'content': self._extract_content(message.text),
+                        'full_text': message.text,
+                        'source': f"Telegram - {channel_name}",
+                        'channel': channel_name,
+                        'url': f"https://t.me/{channel_name}/{message.id}",
+                        'published_date': message.date.isoformat() if message.date else datetime.now().isoformat(),
+                        'scraped_date': datetime.now().isoformat(),
+                        'platform': 'telegram',
+                        'message_age': message_age,
+                        'media': {'has_media': False, 'media_type': None, 'images': [], 'videos': [], 'documents': []},
+                        'link_previews': []
+                    }
+                    
+                    # Speichere Artikel (Duplikatsschutz aktiv)
+                    if self._save_article(article):
+                        new_articles += 1
+                        logger.info(f"Artikel gespeichert: {article['title'][:50]}...")
+            
+            return new_articles
+            
+        except Exception as e:
+            logger.warning(f"Fehler beim Scrapen von Kanal {channel_name}: {e}")
             return 0
 
     async def _scrape_channels(self, limit=10):

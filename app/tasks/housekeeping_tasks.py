@@ -44,7 +44,7 @@ class HousekeepingManager:
         logger.info(f"🧹 Starte Article-Cleanup: Lösche Artikel älter als {days} Tage ({cutoff_date.date()})")
         
         # Lade aktuelle Artikel
-        articles_data = self.json_manager.load_data('articles')
+        articles_data = self.json_manager.read('articles')
         original_count = len(articles_data.get('articles', []))
         
         # Filtere alte Artikel
@@ -104,7 +104,7 @@ class HousekeepingManager:
             return {'removed_count': 0, 'message': 'Media-Verzeichnis existiert nicht'}
         
         # Sammle alle verwendeten Media-Files aus Artikeln
-        articles_data = self.json_manager.load_data('articles')
+        articles_data = self.json_manager.read('articles')
         used_media_files = set()
         
         for article in articles_data.get('articles', []):
@@ -260,7 +260,7 @@ class HousekeepingManager:
             return len(list(path.glob(pattern)))
         
         # Artikel-Statistiken
-        articles_data = self.json_manager.load_data('articles')
+        articles_data = self.json_manager.read('articles')
         article_count = len(articles_data.get('articles', []))
         
         # Größen berechnen

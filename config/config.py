@@ -38,7 +38,7 @@ class Config:
     
     # Scraping Configuration
     SCRAPING_INTERVAL_MINUTES = int(os.environ.get('SCRAPING_INTERVAL_MINUTES', '30'))
-    MAX_ARTICLES_PER_SOURCE = int(os.environ.get('MAX_ARTICLES_PER_SOURCE', '50'))
+    MAX_ARTICLES_PER_SOURCE = int(os.environ.get('MAX_ARTICLES_PER_SOURCE', '200'))
     CLEANUP_DAYS = int(os.environ.get('CLEANUP_DAYS', '3'))  # Standard: 3 Tage
     
     # Housekeeping Configuration

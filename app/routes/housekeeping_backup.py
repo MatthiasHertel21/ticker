@@ -6,8 +6,6 @@ from flask import Blueprint, render_template, request, jsonify, flash, redirect,
 from datetime import datetime
 import logging
 
-from app.utils.timezone_utils import get_cet_time
-
 from app.tasks.housekeeping_tasks import (
     HousekeepingManager,
     cleanup_old_articles_task,
@@ -35,19 +33,19 @@ def dashboard():
         
         # Konfigurationswerte
         config_info = {
-            'cleanup_days': getattr(Config, 'CLEANUP_DAYS', 3),
-            'backup_retention_days': getattr(Config, 'BACKUP_RETENTION_DAYS', 7),
-            'auto_backup': getattr(Config, 'AUTO_BACKUP', True),
-            'housekeeping_enabled': getattr(Config, 'HOUSEKEEPING_ENABLED', True),
-            'auto_cleanup_articles': getattr(Config, 'AUTO_CLEANUP_ARTICLES', True),
-            'auto_cleanup_media': getattr(Config, 'AUTO_CLEANUP_MEDIA', True)
+            'cleanup_days': Config.CLEANUP_DAYS,
+            'backup_retention_days': Config.BACKUP_RETENTION_DAYS,
+            'auto_backup': Config.AUTO_BACKUP,
+            'housekeeping_enabled': Config.HOUSEKEEPING_ENABLED,
+            'auto_cleanup_articles': Config.AUTO_CLEANUP_ARTICLES,
+            'auto_cleanup_media': Config.AUTO_CLEANUP_MEDIA
         }
         
         return render_template(
             'housekeeping/dashboard.html',
             storage_stats=storage_stats,
             config=config_info,
-            current_time=get_cet_time()
+            current_time=datetime.now()
         )
         
     except Exception as e:
@@ -56,7 +54,7 @@ def dashboard():
         return render_template('housekeeping/dashboard.html', 
                              storage_stats=None, 
                              config={},
-                             current_time=get_cet_time())
+                             current_time=datetime.now())
 
 
 @housekeeping_bp.route('/api/storage-stats')
@@ -70,7 +68,7 @@ def api_storage_stats():
         return jsonify({
             'success': True,
             'data': stats,
-            'timestamp': get_cet_time().isoformat()
+            'timestamp': datetime.now().isoformat()
         })
         
     except Exception as e:

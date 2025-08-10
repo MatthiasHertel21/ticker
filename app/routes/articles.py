@@ -32,10 +32,25 @@ def articles_dashboard():
     # Filtere Spam-Artikel aus der Anzeige heraus
     article_list = [article for article in article_list if article.get('relevance_score') != 'spam']
     
-    # Limitiere auf neueste 50
-    article_list = article_list[:50]
+    # Hole Page-Parameter für Paginierung
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 100, type=int)  # Standard: 100 pro Seite
     
-    return render_template('articles.html', articles=article_list)
+    # Berechne Start- und End-Index
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    
+    # Paginierte Artikel
+    paginated_articles = article_list[start_idx:end_idx]
+    total_articles = len(article_list)
+    has_more = end_idx < total_articles
+    
+    return render_template('articles.html', 
+                         articles=paginated_articles,
+                         page=page,
+                         per_page=per_page,
+                         total_articles=total_articles,
+                         has_more=has_more)
 
 
 @bp.route('/rate/<article_id>', methods=['POST'])

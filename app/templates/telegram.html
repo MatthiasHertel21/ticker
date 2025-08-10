@@ -1,82 +1,31 @@
 {% extends "base.html" %}
 
 {% block title %}Telegram Channels - News Aggregator{% endblock %}
-{% block page_title %}📱 Telegram Channels{% endblock %}
-{% block page_subtitle %}Verwalte deine Telegram-Nachrichtenquellen{% endblock %}
+{% block page_title %}<i class="bi bi-telegram me-2"></i>Telegram Channels{% endblock %}
+{% block page_subtitle %}{% endblock %}
 
-{% block page_actions %}
-<button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addChannelModal">
-    <i class="bi bi-plus-circle me-1"></i>Channel hinzufügen
-</button>
+{% block page_header %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-1"><i class="bi bi-telegram me-2"></i>Telegram Channels</h1>
+        <p class="text-muted mb-0"></p>
+    </div>
+    <div>
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addChannelModal">
+            <i class="bi bi-plus-circle me-1"></i>Channel hinzufügen
+        </button>
+    </div>
+</div>
 {% endblock %}
 
+{% block page_actions %}{% endblock %}
+
 {% block content %}
-<!-- Statistics Row -->
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-number">{{ channels|length }}</div>
-            <div class="stat-label">Channels aktiv</div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-number">{{ channels.values()|selectattr('is_active')|list|length }}</div>
-            <div class="stat-label">Online</div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-number">0</div>
-            <div class="stat-label">Heute gesammelt</div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="stat-card">
-            <div class="stat-number">{{ channels.values()|sum(attribute='last_message_id', start=0) }}</div>
-            <div class="stat-label">Nachrichten IDs</div>
-        </div>
-    </div>
-</div>
-
-<!-- Quick Actions -->
-<div class="row g-3 mb-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body text-center">
-                <h5 class="card-title">
-                    <i class="bi bi-arrow-clockwise text-primary me-2"></i>Synchronisation
-                </h5>
-                <p class="card-text text-muted">Überprüfe alle Channels auf neue Nachrichten</p>
-                                    <button type="button" class="btn btn-primary" onclick="manualSync()">
-                        <i class="fas fa-sync"></i> Manueller Sync
-                    </button>
-                    <a href="/telegram/telethon/setup" class="btn btn-info">
-                        <i class="fas fa-rocket"></i> Telethon Setup
-                    </a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body text-center">
-                <h5 class="card-title">
-                    <i class="bi bi-shield-check text-success me-2"></i>Bot Status
-                </h5>
-                <p class="card-text text-muted">Teste die Verbindung zu deinem Telegram Bot</p>
-                <button class="btn btn-success" onclick="performBotTest(this)">
-                    <i class="bi bi-shield-check me-1"></i>Verbindung testen
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Channels List -->
 <div class="card">
     <div class="card-header">
         <h5 class="mb-0">
-            <i class="bi bi-list me-2"></i>Konfigurierte Channels
+            <i class="bi bi-list me-2"></i>Konfigurierte Channels ({{ channels|length }})
         </h5>
     </div>
     <div class="card-body">
@@ -149,6 +98,31 @@
                 </button>
             </div>
         {% endif %}
+    </div>
+</div>
+
+<!-- Bot Status & Synchronisation -->
+<div class="row g-3 mt-4 mb-4">
+    <div class="col-md-6 mx-auto">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="card-title">
+                    <i class="bi bi-shield-check text-success me-2"></i>Bot Status & Synchronisation
+                </h5>
+                <p class="card-text text-muted">Teste die Verbindung und synchronisiere Channels</p>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success" onclick="performBotTest(this)">
+                        <i class="bi bi-shield-check me-1"></i>Verbindung testen
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="manualSync()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Manueller Sync
+                    </button>
+                    <a href="/telegram/telethon/setup" class="btn btn-info">
+                        <i class="bi bi-rocket me-1"></i>Telethon Setup
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 

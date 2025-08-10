@@ -2,20 +2,15 @@
 
 {% block title %}Scraping-Protokoll{% endblock %}
 
+{% block page_header %}{% endblock %}
+
 {% block content %}
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1><i class="bi bi-clock-history me-2"></i>Scraping-Protokoll</h1>
-                <button class="btn btn-primary" onclick="refreshLogs()">
-                    <i class="bi bi-arrow-clockwise me-1"></i>Aktualisieren
-                </button>
-            </div>
-
             <!-- Scraping Schedule Overview -->
             <div class="row mb-4">
-                <div class="col-md-6">
+                <div class="col-12">
                     <div class="card">
                         <div class="card-header bg-primary text-white">
                             <h5 class="mb-0"><i class="bi bi-calendar-event me-2"></i>Scraping-Zeitplan</h5>
@@ -38,27 +33,20 @@
                         </div>
                     </div>
                 </div>
-                
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header bg-success text-white">
-                            <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Heute gesammelt</h5>
-                        </div>
-                        <div class="card-body text-center">
-                            <h2 class="text-success" id="todayArticlesCount">0</h2>
-                            <p class="text-muted">Neue Artikel heute</p>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- Live Logs -->
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-terminal me-2"></i>Live Logs</h5>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
-                        <label class="form-check-label" for="autoRefresh">Auto-Refresh</label>
+                    <div class="d-flex align-items-center gap-3">
+                        <button class="btn btn-sm btn-primary" onclick="refreshLogs()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Aktualisieren
+                        </button>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
+                            <label class="form-check-label" for="autoRefresh">Auto-Refresh</label>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body">
@@ -103,26 +91,26 @@
                     <div class="row" id="scrapingStats">
                         <div class="col-md-3">
                             <div class="text-center">
+                                <h4 class="text-success" id="todayArticlesCount">0</h4>
+                                <p class="text-muted">Heute gesammelt</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
                                 <h4 class="text-primary" id="totalChannels">15</h4>
                                 <p class="text-muted">Telegram-Kanäle</p>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="text-center">
-                                <h4 class="text-success" id="lastHourArticles">0</h4>
+                                <h4 class="text-warning" id="lastHourArticles">0</h4>
                                 <p class="text-muted">Letzte Stunde</p>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="text-center">
-                                <h4 class="text-warning" id="last6HourArticles">0</h4>
+                                <h4 class="text-info" id="last6HourArticles">0</h4>
                                 <p class="text-muted">Letzte 6 Stunden</p>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <h4 class="text-info" id="totalArticles">{{ stats.total_articles or 0 }}</h4>
-                                <p class="text-muted">Gesamt</p>
                             </div>
                         </div>
                     </div>
@@ -239,10 +227,13 @@ function displayLogs(logs) {
 function updateStats(stats) {
     if (!stats) return;
     
-    document.getElementById('todayArticlesCount').textContent = stats.today_articles || 0;
-    document.getElementById('lastHourArticles').textContent = stats.last_hour || 0;
-    document.getElementById('last6HourArticles').textContent = stats.last_6_hours || 0;
-    document.getElementById('totalArticles').textContent = stats.total_articles || 0;
+    const todayElement = document.getElementById('todayArticlesCount');
+    const lastHourElement = document.getElementById('lastHourArticles');
+    const last6HourElement = document.getElementById('last6HourArticles');
+    
+    if (todayElement) todayElement.textContent = stats.today_articles || 0;
+    if (lastHourElement) lastHourElement.textContent = stats.last_hour || 0;
+    if (last6HourElement) last6HourElement.textContent = stats.last_6_hours || 0;
 }
 
 function refreshLogs() {
