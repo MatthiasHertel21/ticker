@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+
+{% block title %}{{ source.source_name }}{% endblock %}
+
+{% block page_header %}
+<!-- Kein Standard-Header für Configure-Seite -->
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-2">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h2>
+                        {% if source.source_type == 'rss' %}
+                            <i class="bi bi-rss-fill text-info"></i>
+                        {% elif source.source_type == 'telegram' %}
+                            <i class="bi bi-telegram text-primary"></i>
+                        {% elif source.source_type == 'twitter' %}
+                            <i class="bi bi-twitter-x text-dark"></i>
+                        {% elif source.source_type == 'web' %}
+                            <i class="bi bi-globe text-secondary"></i>
+                        {% endif %}
+                        {{ source.source_name }}
+                    </h2>
+                </div>
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('sources.manage') }}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Zurück
+                    </a>
+                    <button type="submit" form="sourceConfigForm" class="btn btn-primary">
+                        <i class="bi bi-floppy"></i> Speichern
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Konfiguration -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-gear"></i> Konfiguration</h5>
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="sourceEnabled" {% if source.enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="sourceEnabled">
+                            <span id="statusLabel">{% if source.enabled %}Aktiv{% else %}Inaktiv{% endif %}</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form id="sourceConfigForm">
+                        <input type="hidden" id="sourceId" value="{{ source.get('id', '') }}">
+                        
+                        <!-- Basis-Konfiguration -->
+                        {% if source.source_type == 'rss' %}
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="sourceName" class="form-label">Name</label>
+                                    <input type="text" class="form-control" id="sourceName" value="{{ source.source_name }}" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="rssUrl" class="form-label">RSS-URL</label>
+                                    <input type="url" class="form-control" id="rssUrl" value="{{ source.get('url', '') }}" required>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="mb-3">
+                                <label for="sourceName" class="form-label">Name</label>
+                                <input type="text" class="form-control" id="sourceName" value="{{ source.source_name }}" required>
+                            </div>
+                        {% endif %}
+
+                        <!-- Typ-spezifische Konfiguration -->
+                        {% if source.source_type == 'rss' %}
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="maxArticles" class="form-label">Max. Artikel</label>
+                                    <input type="number" class="form-control" id="maxArticles" value="{{ source.get('max_articles', 10) }}" min="1" max="100">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="updateInterval" class="form-label">Update-Intervall (Minuten)</label>
+                                    <input type="number" class="form-control" id="updateInterval" value="{{ source.get('update_interval', 30) }}" min="5" max="1440">
+                                </div>
+                            </div>
+                        
+                        {% elif source.source_type == 'telegram' %}
+                            <div class="mb-3">
+                                <label for="channelUsername" class="form-label">Channel Username</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">@</span>
+                                    <input type="text" class="form-control" id="channelUsername" value="{{ source.get('channel_username', '') }}" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="maxMessages" class="form-label">Max. Nachrichten</label>
+                                <input type="number" class="form-control" id="maxMessages" value="{{ source.get('max_messages', 10) }}" min="1" max="50">
+                            </div>
+                            <div class="mb-3">
+                                <label for="keywords" class="form-label">Keywords (optional)</label>
+                                <input type="text" class="form-control" id="keywords" value="{{ (source.get('keywords', []) | join(', ')) if source.get('keywords') else '' }}" placeholder="Komma-getrennte Keywords">
+                                <div class="form-text">Nur Nachrichten mit diesen Keywords werden erfasst (leer = alle)</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="excludeKeywords" class="form-label">Ausgeschlossene Keywords (optional)</label>
+                                <input type="text" class="form-control" id="excludeKeywords" value="{{ (source.get('exclude_keywords', []) | join(', ')) if source.get('exclude_keywords') else '' }}" placeholder="Komma-getrennte Keywords">
+                                <div class="form-text">Nachrichten mit diesen Keywords werden ignoriert</div>
+                            </div>
+                        
+                        {% elif source.source_type == 'twitter' %}
+                            <div class="mb-3">
+                                <label for="twitterUsername" class="form-label">X (Twitter) Username</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">@</span>
+                                    <input type="text" class="form-control" id="twitterUsername" value="{{ source.get('username', '') }}" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="maxTweets" class="form-label">Max. Posts</label>
+                                <input type="number" class="form-control" id="maxTweets" value="{{ source.get('max_tweets', 10) }}" min="1" max="50">
+                            </div>
+                        
+                        {% elif source.source_type == 'web' %}
+                            <div class="mb-3">
+                                <label for="webUrl" class="form-label">Website-URL</label>
+                                <input type="url" class="form-control" id="webUrl" value="{{ source.get('url', '') }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="selector" class="form-label">CSS-Selektor für Artikel</label>
+                                <input type="text" class="form-control" id="selector" value="{{ source.get('selector', '') }}" placeholder="z.B. .article, .news-item">
+                            </div>
+                        {% endif %}
+
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status und Statistiken -->
+        <div class="col-lg-4">
+            <!-- Status, Test und Info zusammengefasst -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="bi bi-info-circle"></i> 
+                        {% if source.source_type == 'telegram' %}
+                            Status, Test & Telegram-Info
+                        {% else %}
+                            Status & Test
+                        {% endif %}
+                    </h6>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="testSource()">
+                        <i class="bi bi-play-circle"></i> Quelle testen
+                    </button>
+                </div>
+                <div class="card-body">
+                    <!-- Status-Informationen -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Gesundheit:</span>
+                        {% if source.get('last_error') %}
+                            <span class="badge bg-danger" title="{{ source.last_error }}">Fehler</span>
+                        {% else %}
+                            <span class="badge bg-success">OK</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Letzter Scrape:</span>
+                        <span class="text-muted">
+                            {% if source.get('last_scrape') %}
+                                {{ source.last_scrape[:19].replace('T', ' ') }}
+                            {% else %}
+                                Nie
+                            {% endif %}
+                        </span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span>Artikel gesamt:</span>
+                        <span class="badge bg-info">{{ source.get('total_articles', 0) }}</span>
+                    </div>
+
+                    <!-- Telegram-spezifische Informationen -->
+                    {% if source.source_type == 'telegram' %}
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span><i class="bi bi-telegram"></i> Channel ID:</span>
+                        <span class="text-muted">{{ source.get('channel_id', 'Unbekannt') }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span><i class="bi bi-telegram"></i> Session:</span>
+                        {% if source.get('telethon_session_exists') %}
+                            <span class="badge bg-success">Verfügbar</span>
+                        {% else %}
+                            <span class="badge bg-warning">Setup erforderlich</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <hr>
+                    
+                    <div id="testResults" class="text-muted">
+                        <!-- Test-Ergebnisse werden hier angezeigt -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Quelle testen
+function testSource() {
+    const sourceId = document.getElementById('sourceId').value;
+    const sourceName = document.getElementById('sourceName').value;
+    const testButton = document.querySelector('.btn-primary[onclick="testSource()"]');
+    const resultsDiv = document.getElementById('testResults');
+    
+    // Button deaktivieren und Loading-Zustand anzeigen
+    const originalText = testButton.innerHTML;
+    testButton.innerHTML = '<div class="spinner-border spinner-border-sm me-2" role="status"></div>Teste...';
+    testButton.disabled = true;
+    
+    // Test-Anzeige aktualisieren
+    resultsDiv.innerHTML = `
+        <div class="d-flex align-items-center text-info">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            <span>Test läuft... (max. 30 Sekunden)</span>
+        </div>
+    `;
+    
+    fetch('/sources/test-single', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            source_name: sourceName,
+            source_id: sourceId
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            let articlesPreview = '';
+            if (data.articles && data.articles.length > 0) {
+                articlesPreview = '<div class="mt-2"><strong>Beispiel-Artikel:</strong><ul class="small mt-1">';
+                data.articles.forEach(article => {
+                    articlesPreview += `<li>${article.title || 'Ohne Titel'}</li>`;
+                });
+                articlesPreview += '</ul></div>';
+            }
+            
+            let successMessage = '';
+            if (data.articles_found === 0) {
+                successMessage = `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> <strong>Test erfolgreich, aber keine Artikel gefunden</strong>
+                        <br><small>Die Quelle ist erreichbar, hat aber momentan keine neuen Artikel oder passt nicht zu den Filterkriterien.</small>
+                    </div>
+                `;
+            } else {
+                successMessage = `
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i> <strong>Test erfolgreich!</strong>
+                        <br><small>Gefunden: ${data.articles_found} Artikel</small>
+                        ${articlesPreview}
+                    </div>
+                `;
+            }
+            
+            resultsDiv.innerHTML = successMessage;
+        } else {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> <strong>Test fehlgeschlagen!</strong>
+                    <br><small>${data.error || 'Unbekannter Fehler'}</small>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        resultsDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> <strong>Verbindungsfehler!</strong>
+                <br><small>${error.message}</small>
+            </div>
+        `;
+    })
+    .finally(() => {
+        // Button wieder aktivieren
+        testButton.innerHTML = originalText;
+        testButton.disabled = false;
+    });
+}
+
+// Formular speichern
+document.getElementById('sourceConfigForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const sourceId = document.getElementById('sourceId').value;
+    const formData = new FormData(this);
+    
+    // Konfiguration sammeln basierend auf Typ
+    const config = {
+        id: sourceId,
+        name: document.getElementById('sourceName').value,
+        enabled: document.getElementById('sourceEnabled').checked  // Switch-Status
+    };
+    
+    {% if source.source_type == 'rss' %}
+        config.url = document.getElementById('rssUrl').value;
+        config.max_articles = parseInt(document.getElementById('maxArticles').value);
+        config.update_interval = parseInt(document.getElementById('updateInterval').value);
+    {% elif source.source_type == 'telegram' %}
+        config.channel_username = document.getElementById('channelUsername').value;
+        config.max_messages = parseInt(document.getElementById('maxMessages').value);
+        config.keywords = document.getElementById('keywords').value.split(',').map(k => k.trim()).filter(k => k);
+        config.exclude_keywords = document.getElementById('excludeKeywords').value.split(',').map(k => k.trim()).filter(k => k);
+    {% elif source.source_type == 'twitter' %}
+        config.username = document.getElementById('twitterUsername').value;
+        config.max_tweets = parseInt(document.getElementById('maxTweets').value);
+    {% elif source.source_type == 'web' %}
+        config.url = document.getElementById('webUrl').value;
+        config.selector = document.getElementById('selector').value;
+    {% endif %}
+    
+    fetch('/sources/update-source', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(config)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Toast-Benachrichtigung oder Alert
+            alert('Konfiguration erfolgreich gespeichert!');
+        } else {
+            alert('Fehler beim Speichern: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    })
+    .catch(error => {
+        alert('Verbindungsfehler: ' + error.message);
+    });
+});
+
+// Status-Switch Handler
+document.getElementById('sourceEnabled').addEventListener('change', function() {
+    updateStatusLabel();
+});
+
+function updateStatusLabel() {
+    const switchElement = document.getElementById('sourceEnabled');
+    const label = document.getElementById('statusLabel');
+    if (switchElement.checked) {
+        label.textContent = 'Aktiv';
+        label.className = 'text-success';
+    } else {
+        label.textContent = 'Inaktiv';
+        label.className = 'text-secondary';
+    }
+}
+
+// Initial label update
+document.addEventListener('DOMContentLoaded', function() {
+    updateStatusLabel();
+});
+</script>
+{% endblock %}

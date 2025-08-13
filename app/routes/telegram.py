@@ -4,7 +4,10 @@ Telegram-Management Routes
 
 from flask import Blueprint, request, jsonify, render_template, send_file
 from app.data import json_manager
-from app.scrapers import TelegramChannelMonitor
+try:
+    from app.scrapers import TelegramChannelMonitor
+except ImportError:
+    TelegramChannelMonitor = None
 import asyncio
 import os
 import logging
@@ -86,8 +89,20 @@ def serve_media(filename):
 def telegram_dashboard():
     """Telegram-Dashboard"""
     sources = json_manager.read('sources')
-    telegram_sources = {k: v for k, v in sources.get('sources', {}).items() 
-                       if v.get('type') == 'telegram'}
+    sources_list = sources.get('sources', [])
+    
+    # Filter für Telegram-Quellen - unterstützt sowohl alte (dict) als auch neue (list) Struktur
+    if isinstance(sources_list, list):
+        # Neue Struktur: Liste von Quellen-Objekten
+        telegram_sources = {
+            source.get('name', f'source_{i}'): source 
+            for i, source in enumerate(sources_list) 
+            if source.get('type') == 'telegram'
+        }
+    else:
+        # Alte Struktur: Dictionary mit Quellen
+        telegram_sources = {k: v for k, v in sources_list.items() 
+                           if v.get('type') == 'telegram'}
     
     return render_template('telegram.html', channels=telegram_sources)
 
@@ -137,6 +152,50 @@ def remove_channel(source_id):
         return jsonify({'success': True, 'message': 'Channel entfernt'})
     except Exception as e:
         logger.error(f"Fehler beim Entfernen von Channel {source_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@bp.route('/edit-channel/<source_id>', methods=['POST'])
+def edit_channel(source_id):
+    """Bearbeite Telegram-Channel"""
+    try:
+        from app.scrapers.source_manager import MultiSourceManager
+        
+        data = request.form
+        source_manager = MultiSourceManager()
+        
+        # Channel-Daten aktualisieren
+        update_data = {
+            'name': data.get('name'),
+            'enabled': 'enabled' in data,
+            'config': {
+                'channel_username': data.get('channel_username'),
+                'keywords': [k.strip() for k in data.get('keywords', '').split(',') if k.strip()],
+                'exclude_keywords': [k.strip() for k in data.get('exclude_keywords', '').split(',') if k.strip()]
+            }
+        }
+        
+        # Source aktualisieren
+        source_manager.update_source(source_id, update_data)
+        
+        return jsonify({'success': True, 'message': 'Channel aktualisiert'})
+    except Exception as e:
+        logger.error(f"Fehler beim Bearbeiten von Channel {source_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@bp.route('/delete-channel/<source_id>', methods=['POST'])
+def delete_channel(source_id):
+    """Lösche Telegram-Channel"""
+    try:
+        from app.scrapers.source_manager import MultiSourceManager
+        
+        source_manager = MultiSourceManager()
+        source_manager.remove_source(source_id)
+        
+        return jsonify({'success': True, 'message': 'Channel gelöscht'})
+    except Exception as e:
+        logger.error(f"Fehler beim Löschen von Channel {source_id}: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 

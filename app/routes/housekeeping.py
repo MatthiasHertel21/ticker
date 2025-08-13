@@ -1,5 +1,5 @@
 """
-Housekeeping Routes für Datenbereinigung
+Housekeeping Routes für Datenbereinigung und Spam-Verwaltung
 """
 
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
@@ -7,6 +7,8 @@ from datetime import datetime
 import logging
 
 from app.utils.timezone_utils import get_cet_time
+from app.utils.spam_detector import spam_detector
+from app.data import json_manager
 
 from app.tasks.housekeeping_tasks import (
     HousekeepingManager,
@@ -40,7 +42,10 @@ def dashboard():
             'auto_backup': getattr(Config, 'AUTO_BACKUP', True),
             'housekeeping_enabled': getattr(Config, 'HOUSEKEEPING_ENABLED', True),
             'auto_cleanup_articles': getattr(Config, 'AUTO_CLEANUP_ARTICLES', True),
-            'auto_cleanup_media': getattr(Config, 'AUTO_CLEANUP_MEDIA', True)
+            'auto_cleanup_media': getattr(Config, 'AUTO_CLEANUP_MEDIA', True),
+            'spam_detection_enabled': getattr(Config, 'SPAM_DETECTION_ENABLED', True),
+            'spam_threshold': getattr(Config, 'SPAM_THRESHOLD', 0.7),
+            'spam_auto_mark': getattr(Config, 'SPAM_AUTO_MARK', True)
         }
         
         return render_template(
@@ -235,6 +240,116 @@ def full_cleanup():
         error_msg = f'Fehler bei vollständiger Bereinigung: {str(e)}'
         flash(error_msg, 'error')
         
+
+@housekeeping_bp.route('/spam')
+def spam_management():
+    """Spam-Verwaltung Dashboard anzeigen"""
+    try:
+        # Lade alle Artikel
+        articles_data = json_manager.read('articles')
+        articles = articles_data.get('articles', []) if articles_data else []
+        
+        # Filtere Spam-Artikel
+        spam_articles = [a for a in articles if a.get('relevance_score') == 'spam']
+        suspected_spam = [a for a in articles if a.get('spam_detection', {}).get('spam_score', 0) > 0.5 and a.get('relevance_score') != 'spam']
+        
+        # Spam-Statistiken
+        spam_stats = {
+            'total_articles': len(articles),
+            'spam_articles': len(spam_articles),
+            'suspected_spam': len(suspected_spam),
+            'spam_percentage': (len(spam_articles) / len(articles) * 100) if articles else 0
+        }
+        
+        return render_template(
+            'housekeeping/spam_management.html',
+            spam_articles=spam_articles[:50],  # Zeige nur die ersten 50
+            suspected_spam=suspected_spam[:50],
+            spam_stats=spam_stats,
+            current_time=get_cet_time()
+        )
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Laden der Spam-Verwaltung: {e}")
+        flash(f'Fehler beim Laden der Spam-Verwaltung: {str(e)}', 'error')
+        return redirect(url_for('housekeeping.dashboard'))
+
+
+@housekeeping_bp.route('/spam/mark/<article_id>', methods=['POST'])
+def mark_spam(article_id):
+    """Markiert einen Artikel als Spam"""
+    try:
+        articles_data = json_manager.read('articles')
+        articles = articles_data.get('articles', []) if articles_data else []
+        
+        # Finde den Artikel
+        for article in articles:
+            if article.get('id') == article_id:
+                article['relevance_score'] = 'spam'
+                article['spam_manually_marked'] = True
+                article['spam_marked_at'] = datetime.now().isoformat()
+                break
+        
+        # Speichere die Änderungen
+        json_manager.write('articles', {'articles': articles})
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Markieren als Spam: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@housekeeping_bp.route('/spam/unmark/<article_id>', methods=['POST'])
+def unmark_spam(article_id):
+    """Entfernt Spam-Markierung von einem Artikel"""
+    try:
+        articles_data = json_manager.read('articles')
+        articles = articles_data.get('articles', []) if articles_data else []
+        
+        # Finde den Artikel
+        for article in articles:
+            if article.get('id') == article_id:
+                # Setze auf Default-Score zurück
+                article['relevance_score'] = 'unread'
+                if 'spam_manually_marked' in article:
+                    del article['spam_manually_marked']
+                if 'spam_marked_at' in article:
+                    del article['spam_marked_at']
+                break
+        
+        # Speichere die Änderungen
+        json_manager.write('articles', {'articles': articles})
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        logger.error(f"Fehler beim Entfernen der Spam-Markierung: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@housekeeping_bp.route('/spam/cleanup', methods=['POST'])
+def cleanup_spam():
+    """Entfernt alle als Spam markierten Artikel endgültig"""
+    try:
+        articles_data = json_manager.read('articles')
+        articles = articles_data.get('articles', []) if articles_data else []
+        
+        # Zähle Spam-Artikel vor der Bereinigung
+        spam_count = len([a for a in articles if a.get('relevance_score') == 'spam'])
+        
+        # Entferne alle Spam-Artikel
+        cleaned_articles = [a for a in articles if a.get('relevance_score') != 'spam']
+        
+        # Speichere die bereinigten Artikel
+        json_manager.write('articles', {'articles': cleaned_articles})
+        
+        flash(f'{spam_count} Spam-Artikel erfolgreich entfernt', 'success')
+        return jsonify({'success': True, 'removed_count': spam_count})
+        
+    except Exception as e:
+        logger.error(f"Fehler bei Spam-Bereinigung: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
         return jsonify({
             'success': False,
             'error': error_msg

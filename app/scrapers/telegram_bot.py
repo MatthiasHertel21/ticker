@@ -8,8 +8,17 @@ import logging
 import uuid
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
-from telegram import Bot
-from telegram.error import TelegramError, Forbidden, BadRequest
+try:
+    from telegram import Bot
+    from telegram.error import TelegramError, Forbidden, BadRequest
+    TELEGRAM_AVAILABLE = True
+except ImportError:
+    TELEGRAM_AVAILABLE = False
+    Bot = None
+    TelegramError = Exception
+    Forbidden = Exception
+    BadRequest = Exception
+
 from app.data import json_manager
 import re
 import html
@@ -19,6 +28,10 @@ logger = logging.getLogger(__name__)
 
 def sync_monitor_telegram_channels():
     """Synchrone Wrapper-Funktion für Celery Tasks"""
+    if not TELEGRAM_AVAILABLE:
+        logger.warning("Telegram module not available, skipping channel monitoring")
+        return {"success": False, "error": "Telegram module not installed"}
+    
     try:
         # Event Loop handling für Celery
         try:

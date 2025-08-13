@@ -13,6 +13,7 @@ from typing import List, Dict, Any, Optional
 import re
 import html
 from app.data import json_manager
+from app.utils.spam_detector import spam_detector
 import os
 
 logger = logging.getLogger(__name__)
@@ -594,8 +595,32 @@ class TelethonChannelScraper:
             return text
 
     def _save_article(self, article):
-        """Speichert einen Artikel in der JSON-Datenbank"""
+        """Speichert einen Artikel in der JSON-Datenbank mit Spam-Detection"""
         try:
+            from config.config import Config
+            
+            # Spam-Detection durchführen (wenn aktiviert)
+            if getattr(Config, 'SPAM_DETECTION_ENABLED', True):
+                spam_result = spam_detector.is_spam(article)
+                
+                # Spam-Informationen zum Artikel hinzufügen
+                article['spam_detection'] = {
+                    'spam_score': spam_result['spam_score'],
+                    'is_spam': spam_result['is_spam'],
+                    'confidence': spam_result['confidence'],
+                    'reasons': spam_result['reasons'],
+                    'checked_at': datetime.now().isoformat()
+                }
+                
+                # Auto-markiere als Spam wenn Score hoch genug und Auto-Mark aktiviert
+                if (spam_result['is_spam'] and 
+                    getattr(Config, 'SPAM_AUTO_MARK', True)):
+                    article['relevance_score'] = 'spam'
+                    logger.info(f"Artikel automatisch als Spam markiert: {article['title'][:50]}... (Score: {spam_result['spam_score']:.2f})")
+                
+                # Füge zur Recent-Articles-Liste für zukünftige Similarity-Checks hinzu
+                spam_detector.add_article_to_recent(article)
+            
             # Verwende den json_manager mit der korrekten API
             articles_data = json_manager.read('articles')  # Ohne .json Extension
             

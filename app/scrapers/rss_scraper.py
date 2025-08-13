@@ -1,20 +1,150 @@
 """
-RSS Feed Scraper für News-Quellen
-Ersetzt den Telegram Bot Ansatz durch öffentliche RSS-Feeds
+RSS Feed Scraper für News-Aggregation (Multi-Source kompatibel)
 """
 
 import feedparser
 import requests
-from datetime import datetime
-import uuid
+from typing import Dict, List, Any
+from datetime import datetime, timedelta
 import logging
-import asyncio
-from typing import List, Dict, Any
-import re
-from bs4 import BeautifulSoup
-from app.data import json_manager
+from urllib.parse import urljoin, urlparse
+
+from .base_scraper import BaseScraper
+from app.utils.timezone_utils import get_cet_time, parse_iso_to_cet
 
 logger = logging.getLogger(__name__)
+
+
+class RSSFeedScraper(BaseScraper):
+    """Multi-Source-kompatibler RSS Feed Scraper"""
+    
+    def __init__(self, config: Dict[str, Any]):
+        super().__init__(config)
+        self.source_type = 'rss'
+        self.url = config.get('url', '')
+        self.max_articles = config.get('max_articles', 10)
+        self.update_interval = config.get('update_interval', 30)
+        
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36'
+        })
+    
+    def validate_config(self) -> bool:
+        """Validiert die RSS-Feed-Konfiguration"""
+        if not self.url:
+            logger.error("RSS-URL ist erforderlich")
+            return False
+        
+        try:
+            # Test-Request für URL-Validierung
+            response = self.session.head(self.url, timeout=10, allow_redirects=True)
+            if response.status_code >= 400:
+                logger.error(f"RSS-URL nicht erreichbar: {response.status_code}")
+                return False
+        except Exception as e:
+            logger.error(f"RSS-URL-Validierung fehlgeschlagen: {e}")
+            return False
+        
+        return True
+    
+    def scrape(self) -> List[Dict[str, Any]]:
+        """Scrapt Artikel aus dem RSS-Feed"""
+        try:
+            logger.info(f"🔄 Scraping RSS-Feed: {self.url}")
+            
+            # RSS-Feed abrufen
+            response = self.session.get(self.url, timeout=30)
+            response.raise_for_status()
+            
+            # Feed parsen
+            feed = feedparser.parse(response.content)
+            
+            if not hasattr(feed, 'entries') or not feed.entries:
+                logger.warning(f"Keine Einträge im RSS-Feed gefunden: {self.url}")
+                return []
+            
+            articles = []
+            for entry in feed.entries[:self.max_articles]:
+                try:
+                    # Basis-Artikel-Daten
+                    article = {
+                        'title': entry.get('title', 'Ohne Titel').strip(),
+                        'link': entry.get('link', ''),
+                        'description': entry.get('summary', entry.get('description', '')),
+                        'published': self._parse_publish_date(entry),
+                        'source': feed.feed.get('title', self.source_config.get('name', 'RSS Feed')),
+                        'source_type': 'rss',
+                        'source_url': self.url,
+                        'tags': self._extract_tags(entry),
+                        'content': entry.get('content', [{}])[0].get('value', ''),
+                        'scraped_at': get_cet_time().isoformat()
+                    }
+                    
+                    # Content-Hash für Duplikatserkennung
+                    article = self.normalize_article(article)
+                    articles.append(article)
+                    
+                except Exception as e:
+                    logger.warning(f"Fehler beim Verarbeiten von RSS-Eintrag: {e}")
+                    continue
+            
+            logger.info(f"✅ {len(articles)} Artikel aus RSS-Feed extrahiert: {self.url}")
+            return articles
+            
+        except Exception as e:
+            logger.error(f"❌ Fehler beim RSS-Scraping: {e}")
+            return []
+    
+    def _parse_publish_date(self, entry) -> str:
+        """Parst das Veröffentlichungsdatum aus dem RSS-Eintrag"""
+        try:
+            # Verschiedene Datum-Felder versuchen
+            for date_field in ['published_parsed', 'updated_parsed']:
+                if hasattr(entry, date_field) and getattr(entry, date_field):
+                    time_struct = getattr(entry, date_field)
+                    dt = datetime(*time_struct[:6])
+                    return dt.isoformat()
+            
+            # String-Datum versuchen
+            for date_field in ['published', 'updated']:
+                if hasattr(entry, date_field):
+                    date_str = getattr(entry, date_field)
+                    if date_str:
+                        # Einfache Parse-Versuche
+                        for fmt in ['%a, %d %b %Y %H:%M:%S %z', '%Y-%m-%dT%H:%M:%S%z']:
+                            try:
+                                dt = datetime.strptime(date_str, fmt)
+                                return dt.isoformat()
+                            except:
+                                continue
+            
+            # Fallback: aktueller Zeitstempel
+            return get_cet_time().isoformat()
+            
+        except Exception as e:
+            logger.debug(f"Datum-Parsing fehlgeschlagen: {e}")
+            return get_cet_time().isoformat()
+    
+    def _extract_tags(self, entry) -> List[str]:
+        """Extrahiert Tags aus dem RSS-Eintrag"""
+        tags = []
+        
+        try:
+            # RSS-Tags
+            if hasattr(entry, 'tags') and entry.tags:
+                for tag in entry.tags:
+                    if hasattr(tag, 'term') and tag.term:
+                        tags.append(tag.term.strip())
+            
+            # Kategorien
+            if hasattr(entry, 'category') and entry.category:
+                tags.append(entry.category.strip())
+        
+        except Exception as e:
+            logger.debug(f"Tag-Extraktion fehlgeschlagen: {e}")
+        
+        return tags[:5]  # Maximal 5 Tags
 
 
 class RSSNewsScraper:

@@ -7,12 +7,29 @@
 {% block content %}
 <style>
 /* Override content-area padding for this page */
-.content-area {
-    padding: 0 !important;
-}
+.content-area { padding: 0 !important; }
+/* Abstand Navbar -> erster Artikel */
+.articles-header-spacer { height: .5rem; }
+/* Icon Buttons ohne Rahmen */
+.rating-buttons-container .btn { border: none !important; background: transparent !important; box-shadow:none !important; padding:.25rem .45rem; }
+.rating-buttons-container .btn:hover { background: rgba(0,0,0,0.06) !important; }
+.rating-buttons-container .btn.active { background: rgba(13,110,253,.15) !important; }
+/* Horizontal jitter verhindern */
+html { overflow-y: scroll; }
+/* Kleiner Abstand zwischen Header-Balken und Titel */
+.article-card .article-body > .p-4.pt-0 { padding-top:.5rem !important; }
+/* Container Padding entfernen */
+.container-fluid.articles-container { padding-left:0 !important; padding-right:0 !important; }
+/* Source Icon Badge */
+.source-badge-icon { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; font-size:16px; }
+.source-badge-icon.telegram { background:#229ED9; color:#fff; }
+.source-badge-icon.rss { background:#ff8800; color:#fff; }
+.source-badge-icon.web { background:#6c757d; color:#fff; }
+.source-badge-icon.twitter { background:#000; color:#fff; }
+.fade-out-shrink { transition: opacity .25s ease, transform .25s ease; opacity:0; transform:scale(.96); }
 </style>
 
-<div class="container-fluid px-0" style="margin: 0; padding: 0;">
+<div class="container-fluid px-0 articles-container" style="margin:0;">
     
     <!-- Articles Grid -->
     <div class="row g-0" style="margin: 0;">
@@ -24,13 +41,17 @@
                     <!-- Article Header with Date, Channel, Age -->
                     <div class="d-flex justify-content-between align-items-start mb-0 px-3 py-2 bg-secondary bg-opacity-25">
                         <!-- Tags Container -->
-                        <div class="d-flex align-items-start gap-2 mb-0">
-                            {% if article.url %}
-                            <a href="{{ article.url }}" target="_blank" class="text-decoration-none">
-                                <span class="badge bg-primary">{{ (article.source or article.channel) | clean_channel_name }}</span>
-                            </a>
-                            {% else %}
-                            <span class="badge bg-primary">{{ (article.source or article.channel) | clean_channel_name }}</span>
+            <div class="d-flex align-items-start gap-2 mb-0">
+                            {% set platform = article.platform or article.source_type %}
+                            {% if platform %}
+                                {% set icon_class = 'bi-question' %}
+                                {% if platform == 'telegram' %}{% set icon_class = 'bi-telegram' %}{% endif %}
+                                {% if platform == 'rss' %}{% set icon_class = 'bi-rss' %}{% endif %}
+                                {% if platform == 'web' %}{% set icon_class = 'bi-globe' %}{% endif %}
+                                {% if platform == 'twitter' %}{% set icon_class = 'bi-twitter-x' %}{% endif %}
+                {% set channel_name = (article.source or article.channel) | clean_channel_name %}
+                <span class="source-badge-icon {{ platform }}" title="{{ channel_name }}"><i class="bi {{ icon_class }}"></i></span>
+                <span class="small fw-semibold mt-1"><a href="/sources/manage" class="text-decoration-none text-reset" title="Quelle öffnen">{{ channel_name }}</a></span>
                             {% endif %}
                             {% if article.message_age %}
                             <span class="badge bg-secondary">{{ article.message_age | shorten_time_tag }}</span>
@@ -39,17 +60,17 @@
                         
                         <!-- Rating Buttons -->
                         <div class="rating-buttons-container d-flex align-items-start">
-                            <button class="btn btn-sm btn-outline-secondary {{ 'active' if article.relevance_score == 'favorite' else '' }}" 
+                            <button class="btn btn-sm {{ 'active' if article.relevance_score == 'favorite' else '' }}" 
                                     onclick="updateRating('{{ article.id }}', 'favorite', this)" 
                                     title="Als Favorit markieren">
                                 <i class="bi bi-heart-fill text-muted"></i>
                             </button><!--
-                            --><button class="btn btn-sm btn-outline-secondary {{ 'active' if article.relevance_score == 'spam' else '' }}" 
+                            --><button class="btn btn-sm {{ 'active' if article.relevance_score == 'spam' else '' }}" 
                                     onclick="updateRating('{{ article.id }}', 'spam', this)" 
                                     title="Als Spam markieren">
                                 <i class="bi bi-trash-fill text-muted"></i>
                             </button><!--
-                            --><button class="btn btn-sm btn-outline-secondary" 
+                            --><button class="btn btn-sm" 
                                     onclick="deleteArticle('{{ article.id }}', this)" 
                                     title="Artikel löschen">
                                 <i class="bi bi-x-lg text-muted"></i>
@@ -57,7 +78,7 @@
                         </div>
                     </div>
 
-                    <div class="p-4 pt-0">
+                    <div class="pt-2 px-0">
                     <!-- Article Title -->
                     {% if article.title %}
                     <h5 class="article-title mb-2">
@@ -149,25 +170,15 @@
                     {% if article.content %}
                     <div class="article-content mb-3">
                         {% set clean_content = article.content | render_telegram_content_clean %}
-                        {% set is_long = article.content | length > 300 %}
-                        {% if clean_content %}
+                        {% set truncated = clean_content | truncate_chars_media(640,1) %}
+                        {% if truncated.html %}
                         <div class="content-preview">
-                            {% if is_long %}
-                                {{ clean_content[:300] | safe }}
-                                <button class="btn btn-link btn-sm p-0 ms-1" onclick="toggleFullContent(this)">
-                                    <i class="bi bi-chevron-down me-1"></i>Mehr anzeigen
-                                </button>
-                            {% else %}
-                                {{ clean_content | safe }}
+                            {{ truncated.html | safe }}
+                            {% if truncated.truncated %}
+                            <span class="badge bg-primary bg-opacity-75 ms-2 more-toggle" data-loaded="0" onclick="toggleFullContentLazy(this)" style="cursor:pointer;">Mehr anzeigen</span>
                             {% endif %}
                         </div>
-                        {% if is_long %}
-                        <div class="full-content d-none mt-2">
-                            <div class="border-top pt-2">
-                                {{ clean_content | safe }}
-                            </div>
-                        </div>
-                        {% endif %}
+                        <div class="full-content d-none mt-2" data-article-id="{{ article.id }}"></div>
                         {% endif %}
                     </div>
                     {% endif %}
@@ -241,36 +252,52 @@ function updateRating(articleId, rating, button) {
 }
 
 function deleteArticle(articleId, button) {
-    if (confirm('Artikel wirklich löschen?')) {
-        fetch('/articles/delete/' + articleId, {
-            method: 'POST',
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const card = button.closest('.col-12');
-                if (card) {
-                    card.remove();
-                }
-            }
-        })
-        .catch(error => console.error('Error:', error));
-    }
+    const wrapper = button.closest('.col-12');
+    if (!wrapper) return;
+    const card = wrapper.querySelector('.article-card');
+    if (card) card.classList.add('fade-out-shrink');
+    setTimeout(()=> { wrapper.remove(); }, 250);
+    fetch('/articles/delete/' + articleId, { method:'POST' })
+        .then(r=>r.json())
+        .then(data=>{ if(!data.success){ console.warn('Delete failed backend', data.error); }})
+        .catch(err=>console.error('Delete error', err));
 }
 
-function toggleFullContent(button) {
-    const articleCard = button.closest('.article-card');
-    const preview = articleCard.querySelector('.content-preview');
+function toggleFullContentLazy(badge){
+    const articleCard = badge.closest('.article-card');
+    if(!articleCard) return;
     const fullContent = articleCard.querySelector('.full-content');
-    
-    if (fullContent.classList.contains('d-none')) {
-        fullContent.classList.remove('d-none');
-        preview.style.display = 'none';
-        button.innerHTML = '<i class="bi bi-chevron-up me-1"></i>Weniger anzeigen';
+    const previewWrapper = articleCard.querySelector('.content-preview');
+    const loaded = badge.getAttribute('data-loaded') === '1';
+    const articleId = fullContent.getAttribute('data-article-id');
+    const expanding = fullContent.classList.contains('d-none');
+    if(expanding){
+        if(!loaded){
+            badge.textContent = 'Lade…';
+            fetch(`/articles/${articleId}/full`)
+                .then(r=>r.json())
+                .then(data=>{
+                    if(data.content){
+                        fullContent.innerHTML = `<div class='border-top pt-2'>${data.content}</div>`;
+                        badge.setAttribute('data-loaded','1');
+                        badge.textContent = 'Weniger';
+                        fullContent.classList.remove('d-none');
+                        previewWrapper.style.display='none';
+                    } else {
+                        badge.textContent = 'Fehler';
+                    }
+                })
+                .catch(()=>{ badge.textContent='Fehler'; })
+            ;
+        } else {
+            fullContent.classList.remove('d-none');
+            previewWrapper.style.display='none';
+            badge.textContent='Weniger';
+        }
     } else {
         fullContent.classList.add('d-none');
-        preview.style.display = 'block';
-        button.innerHTML = '<i class="bi bi-chevron-down me-1"></i>Mehr anzeigen';
+        previewWrapper.style.display='block';
+        badge.textContent='Mehr anzeigen';
     }
 }
 
@@ -286,6 +313,14 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
             loadPreviewForContainer(autoLoadContainers[i]);
         }, i * 800); // 800ms delay between each request
+    }
+});
+
+// Click auf letzten Scrape-Zeitpunkt startet neues Scraping (falls global startScraping vorhanden)
+document.addEventListener('DOMContentLoaded', () => {
+    const t = document.getElementById('lastScrapeTime');
+    if (t && typeof startScraping === 'function') {
+        t.addEventListener('click', () => startScraping());
     }
 });
 

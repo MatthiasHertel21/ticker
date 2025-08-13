@@ -45,12 +45,38 @@ def articles_dashboard():
     total_articles = len(article_list)
     has_more = end_idx < total_articles
     
-    return render_template('articles.html', 
-                         articles=paginated_articles,
-                         page=page,
-                         per_page=per_page,
-                         total_articles=total_articles,
-                         has_more=has_more)
+    # Letzter Scrape (heuristisch: max published_date/published_at)
+    last_ts = None
+    for a in article_list:
+        ts = a.get('published_date') or a.get('published_at')
+        if ts and (last_ts is None or ts > last_ts):
+            last_ts = ts
+    last_scrape_age = None
+    if last_ts:
+        try:
+            from datetime import datetime, timezone
+            from dateutil import parser as dateparser
+            dt = dateparser.parse(last_ts)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            diff = datetime.now(timezone.utc) - dt
+            seconds = diff.total_seconds()
+            if seconds < 3600:
+                last_scrape_age = f"{int(seconds//60)}m"
+            elif seconds < 86400:
+                last_scrape_age = f"{int(seconds//3600)}h"
+            else:
+                last_scrape_age = f"{int(seconds//86400)}d"
+        except Exception:
+            last_scrape_age = None
+
+    return render_template('articles.html',
+                           articles=paginated_articles,
+                           page=page,
+                           per_page=per_page,
+                           total_articles=total_articles,
+                           has_more=has_more,
+                           last_scrape_age=last_scrape_age)
 
 
 @bp.route('/rate/<article_id>', methods=['POST'])
@@ -221,4 +247,22 @@ def get_article_preview(article_id):
         return jsonify({'previews': previews})
     except Exception as e:
         logger.error(f"Error getting preview for article {article_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/<article_id>/full')
+def get_full_article(article_id):
+    """Liefert vollständigen gereinigten Content eines Artikels (lazy geladen)."""
+    try:
+        articles = json_manager.read('articles')
+        articles_data = articles.get('articles', [])
+        article = next((a for a in articles_data if str(a.get('id')) == str(article_id)), None)
+        if not article:
+            return jsonify({'error': 'Article not found'}), 404
+        content = article.get('content') or ''
+        from app.utils.template_filters import render_telegram_content_clean, sanitize_full_html
+        full_html = sanitize_full_html(render_telegram_content_clean(content))
+        return jsonify({'content': str(full_html)})
+    except Exception as e:
+        logger.error(f"Error getting full content for article {article_id}: {e}")
         return jsonify({'error': str(e)}), 500

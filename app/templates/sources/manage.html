@@ -1,0 +1,588 @@
+{% extends "base.html" %}
+
+{% block title %}Quellen-Verwaltung{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Entfernte Top-Aktionsleiste (Dashboard | Neue Quelle | Alle testen | Aktualisieren) -->
+
+    <!-- Quellen-Typ Filter -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="sourceTypeFilter" id="filter-telegram" autocomplete="off" checked>
+                        <label class="btn btn-outline-primary" for="filter-telegram" onclick="filterByType('telegram')">
+                            <i class="bi bi-telegram"></i> Telegram 
+                            <span class="badge bg-primary ms-1">{{ stats.sources | selectattr('source_type', 'equalto', 'telegram') | list | length }}</span>
+                        </label>
+
+                        <input type="radio" class="btn-check" name="sourceTypeFilter" id="filter-rss" autocomplete="off">
+                        <label class="btn btn-outline-info" for="filter-rss" onclick="filterByType('rss')">
+                            <i class="bi bi-rss-fill"></i> RSS 
+                            <span class="badge bg-info ms-1">{{ stats.sources | selectattr('source_type', 'equalto', 'rss') | list | length }}</span>
+                        </label>
+
+                        <input type="radio" class="btn-check" name="sourceTypeFilter" id="filter-web" autocomplete="off">
+                        <label class="btn btn-outline-secondary" for="filter-web" onclick="filterByType('web')">
+                            <i class="bi bi-globe"></i> Web 
+                            <span class="badge bg-secondary ms-1">{{ stats.sources | selectattr('source_type', 'equalto', 'web') | list | length }}</span>
+                        </label>
+
+                        <input type="radio" class="btn-check" name="sourceTypeFilter" id="filter-twitter" autocomplete="off">
+                        <label class="btn btn-outline-dark" for="filter-twitter" onclick="filterByType('twitter')">
+                            <i class="bi bi-twitter-x"></i> X 
+                            <span class="badge bg-dark ms-1">{{ stats.sources | selectattr('source_type', 'equalto', 'twitter') | list | length }}</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quellen-Liste -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0" id="sourceListTitle">
+                        <i class="bi bi-telegram"></i> Telegram-Quellen
+                    </h5>
+                    <div>
+                        <button id="addSourceBtn" class="btn btn-success btn-sm me-2" onclick="showAddSourceForType()">
+                            <i class="fas fa-plus"></i> Quelle hinzufügen
+                        </button>
+                        <small class="text-muted">Update: {{ current_time.strftime('%H:%M:%S') if current_time else 'Unbekannt' }}</small>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if stats.sources %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="10%">Status</th>
+                                        <th width="40%">Name</th>
+                                        <th width="20%">Typ</th>
+                                        <th width="15%">Letzte Artikel</th>
+                                        <th width="15%">Letzter Scrape</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sourcesTableBody">
+                                    {% for source in stats.sources %}
+                                    <tr class="source-row" data-source-type="{{ source.source_type }}" id="source-row-{{ loop.index }}" 
+                                        style="cursor: pointer;" onclick="viewSourceConfig('{{ source.get('source_name', source.name) }}', '{{ source.get('id', '') }}')">
+                                        <td onclick="event.stopPropagation();">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" 
+                                                       type="checkbox" 
+                                                       id="toggle-{{ loop.index }}" 
+                                                       {{ 'checked' if source.enabled else '' }}
+                                                       onchange="toggleSourceStatus('{{ source.get('id', source.get('source_name', source.name)) }}', this.checked, '{{ loop.index }}')">
+                                                <label class="form-check-label" for="toggle-{{ loop.index }}"></label>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                {% if source.source_type == 'rss' %}
+                                                    <i class="bi bi-rss-fill text-info me-2"></i>
+                                                {% elif source.source_type == 'telegram' %}
+                                                    <i class="bi bi-telegram text-primary me-2"></i>
+                                                {% elif source.source_type == 'twitter' %}
+                                                    <i class="bi bi-twitter-x text-dark me-2"></i>
+                                                {% elif source.source_type == 'web' %}
+                                                    <i class="bi bi-globe text-secondary me-2"></i>
+                                                {% endif %}
+                                                <div>
+                                                    <strong>{{ source.source_name }}</strong>
+                                                    {% if source.source_type == 'rss' and source.get('url') %}
+                                                        <br><small class="text-muted">{{ source.url[:50] }}...</small>
+                                                    {% elif source.source_type == 'telegram' and source.get('channel_username') %}
+                                                        <br><small class="text-muted">@{{ source.channel_username }}</small>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if source.source_type == 'rss' %}
+                                                <span class="badge bg-info"><i class="bi bi-rss-fill"></i> RSS</span>
+                                            {% elif source.source_type == 'telegram' %}
+                                                <span class="badge bg-primary"><i class="bi bi-telegram"></i> Telegram</span>
+                                            {% elif source.source_type == 'twitter' %}
+                                                <span class="badge bg-dark"><i class="bi bi-twitter-x"></i> X</span>
+                                            {% elif source.source_type == 'web' %}
+                                                <span class="badge bg-secondary"><i class="bi bi-globe"></i> Web</span>
+                                            {% else %}
+                                                <span class="badge bg-light text-dark">{{ source.source_type }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            {% if source.last_article_count is defined %}
+                                                <span class="badge bg-info fs-6">
+                                                    {{ source.last_article_count }}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if source.last_scrape_time %}
+                                                <small class="text-muted">
+                                                    {{ source.last_scrape_time[:19].replace('T', ' ') }}
+                                                </small>
+                                            {% else %}
+                                                <small class="text-muted">Nie</small>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Empty state für gefilterte Ansicht -->
+                        <div id="emptyFilterState" class="text-center py-5" style="display: none;">
+                            <div class="mb-4">
+                                <i class="fas fa-filter fa-4x text-muted"></i>
+                            </div>
+                            <h5 class="text-muted">Keine Quellen dieses Typs</h5>
+                            <p class="text-muted" id="emptyFilterText">Für den gewählten Typ sind noch keine Quellen konfiguriert.</p>
+                            <button class="btn btn-primary btn-lg" onclick="showAddSourceForType()">
+                                <i class="fas fa-plus"></i> <span id="addSourceTypeText">Quelle</span> hinzufügen
+                            </button>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <div class="mb-4">
+                                <i class="fas fa-inbox fa-4x text-muted"></i>
+                            </div>
+                            <h5 class="text-muted">Keine Quellen konfiguriert</h5>
+                            <p class="text-muted">Fügen Sie Ihre erste News-Quelle hinzu, um zu starten.</p>
+                            <a href="{{ url_for('sources.add_source') }}" class="btn btn-primary btn-lg">
+                                <i class="fas fa-plus"></i> Erste Quelle hinzufügen
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div class="modal fade" id="sourceDetailsModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Quellen-Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="sourceDetailsContent">
+                        <!-- Wird via JavaScript gefüllt -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test-Ergebnisse Modal -->
+    <div class="modal fade" id="testResultModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Test-Ergebnisse</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="testResultContent">
+                        <!-- Wird via JavaScript gefüllt -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Dynamische URLs aus Flask generieren
+const toggleStatusUrl = "{{ url_for('sources.toggle_source_status') }}";
+console.log('Toggle Status Endpoint:', toggleStatusUrl);
+// Tooltips aktivieren
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
+});
+
+// Globale Variable für aktuellen Filter
+let currentFilter = 'all';
+
+// Filter-Funktionalität
+function filterByType(type) {
+    currentFilter = type;
+    const rows = document.querySelectorAll('.source-row');
+    const emptyState = document.getElementById('emptyFilterState');
+    const table = document.querySelector('.table-responsive');
+    const title = document.getElementById('sourceListTitle');
+    const addBtn = document.getElementById('addSourceBtn');
+    const addTypeText = document.getElementById('addSourceTypeText');
+    
+    let visibleCount = 0;
+    
+    // Filter Zeilen
+    rows.forEach(row => {
+        const sourceType = row.getAttribute('data-source-type');
+        if (type === 'all' || sourceType === type) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    // Titel und Button anpassen
+    const typeLabels = {
+        'all': '📋 Alle Quellen',
+        'telegram': '💬 Telegram Quellen',
+        'rss': '📡 RSS Quellen',
+        'web': '🌐 Web Quellen',
+        'twitter': '🐦 Twitter Quellen'
+    };
+    
+    const addLabels = {
+        'all': 'Quelle',
+        'telegram': 'Telegram-Quelle',
+        'rss': 'RSS-Quelle',
+        'web': 'Web-Quelle',
+        'twitter': 'Twitter-Quelle'
+    };
+    
+    title.textContent = typeLabels[type] || '📋 Quellen';
+    addTypeText.textContent = addLabels[type] || 'Quelle';
+    
+    // Empty State Management
+    if (visibleCount === 0 && type !== 'all') {
+        table.style.display = 'none';
+        emptyState.style.display = 'block';
+        document.getElementById('emptyFilterText').textContent = 
+            `Für den Typ "${typeLabels[type]}" sind noch keine Quellen konfiguriert.`;
+    } else {
+        table.style.display = 'block';
+        emptyState.style.display = 'none';
+    }
+}
+
+// Add Source für spezifischen Typ
+function showAddSourceForType() {
+    const addUrl = new URL('{{ url_for("sources.add_source") }}', window.location.origin);
+    if (currentFilter !== 'all') {
+        addUrl.searchParams.set('type', currentFilter);
+    }
+    window.location.href = addUrl.toString();
+}
+
+async function testSingleSource(sourceName, rowIndex) {
+    const btn = event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/sources/test');
+        const data = await response.json();
+        
+        if (data.success && data.test_results[sourceName]) {
+            const result = data.test_results[sourceName];
+            
+            let html = `
+                <h6>Test-Ergebnis für: ${sourceName}</h6>
+                <div class="alert ${result.status === 'success' ? 'alert-success' : 'alert-danger'}">
+                    <strong>Status:</strong> ${result.status === 'success' ? '✅ Erfolgreich' : '❌ Fehlgeschlagen'}
+                </div>
+            `;
+            
+            if (result.status === 'success') {
+                html += `<p><strong>Artikel gefunden:</strong> ${result.article_count}</p>`;
+            } else {
+                html += `<p><strong>Fehler:</strong> ${result.error}</p>`;
+            }
+            
+            document.getElementById('testResultContent').innerHTML = html;
+            new bootstrap.Modal(document.getElementById('testResultModal')).show();
+        }
+        
+    } catch (error) {
+        alert('Fehler beim Testen: ' + error.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+async function testAllSources() {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Teste...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/sources/test');
+        const data = await response.json();
+        
+        let html = '<h6>Test-Ergebnisse aller Quellen:</h6>';
+        
+        if (data.success) {
+            html += '<div class="list-group">';
+            
+            for (const [sourceName, result] of Object.entries(data.test_results)) {
+                const statusClass = result.status === 'success' ? 'list-group-item-success' : 'list-group-item-danger';
+                const statusIcon = result.status === 'success' ? '✅' : '❌';
+                const details = result.status === 'success' 
+                    ? `${result.article_count} Artikel gefunden`
+                    : result.error;
+                
+                html += `
+                    <div class="list-group-item ${statusClass}">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">${statusIcon} ${sourceName}</h6>
+                            <small>${result.source_type}</small>
+                        </div>
+                        <p class="mb-1">${details}</p>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+        } else {
+            html += '<div class="alert alert-danger">Fehler beim Testen der Quellen</div>';
+        }
+        
+        document.getElementById('testResultContent').innerHTML = html;
+        new bootstrap.Modal(document.getElementById('testResultModal')).show();
+        
+    } catch (error) {
+        alert('Fehler beim Testen: ' + error.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+function viewSourceDetails(sourceName) {
+    // Placeholder für Details-Anzeige
+    const html = `
+        <h6>Details für: ${sourceName}</h6>
+        <p>Detaillierte Informationen über die Quelle werden hier angezeigt.</p>
+        <div class="alert alert-info">
+            <strong>Info:</strong> Detailansicht noch in Entwicklung
+        </div>
+    `;
+    
+    document.getElementById('sourceDetailsContent').innerHTML = html;
+    new bootstrap.Modal(document.getElementById('sourceDetailsModal')).show();
+}
+
+function editSource(sourceName) {
+    // Placeholder für Bearbeitung
+    alert('Bearbeitung für ' + sourceName + ' - Feature in Entwicklung');
+}
+
+function deleteSource(sourceName) {
+    if (confirm('Sind Sie sicher, dass Sie die Quelle "' + sourceName + '" löschen möchten?')) {
+        alert('Löschen für ' + sourceName + ' - Feature in Entwicklung');
+    }
+}
+
+function refreshData() {
+    window.location.reload();
+}
+
+// Auto-Refresh alle 5 Minuten
+setInterval(refreshData, 300000);
+
+currentFilter = 'telegram';
+
+// Typ-Filter Funktionen
+function filterByType(type) {
+    currentFilter = type;
+    const rows = document.querySelectorAll('.source-row');
+    const title = document.getElementById('sourceListTitle');
+    
+    // Titel und Icon aktualisieren
+    let titleText = '';
+    switch(type) {
+        case 'telegram':
+            titleText = '<i class="bi bi-telegram"></i> Telegram-Quellen';
+            break;
+        case 'rss':
+            titleText = '<i class="bi bi-rss-fill"></i> RSS-Quellen';
+            break;
+        case 'web':
+            titleText = '<i class="bi bi-globe"></i> Web-Quellen';
+            break;
+        case 'twitter':
+            titleText = '<i class="bi bi-twitter-x"></i> X-Quellen';
+            break;
+    }
+    title.innerHTML = titleText;
+    
+    // Zeilen filtern
+    rows.forEach(row => {
+        const sourceType = row.getAttribute('data-source-type');
+        if (sourceType === type) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+// Navigation zu Konfigurationsseite
+function viewSourceConfig(sourceName, sourceId) {
+    window.location.href = `/sources/configure?name=${encodeURIComponent(sourceName)}&id=${encodeURIComponent(sourceId)}`;
+}
+
+function showAddSourceForType() {
+    window.location.href = `/sources/add-source?type=${currentFilter}`;
+}
+
+function testAllSources() {
+    if (confirm('Möchten Sie alle sichtbaren Quellen testen?')) {
+        // Implementierung für Massentest
+        alert('Massentest für ' + currentFilter + '-Quellen wird ausgeführt...');
+    }
+}
+
+// Initialer Filter setzen
+document.addEventListener('DOMContentLoaded', function() {
+    filterByType('telegram');
+});
+
+// Toggle-Funktion für Quellenstatus
+function toggleSourceStatus(sourceName, enabled, rowIndex) {
+    console.log('Toggle request:', sourceName, enabled, rowIndex);
+    
+    // Visuelle Rückmeldung während der Anfrage
+    const toggle = document.getElementById(`toggle-${rowIndex}`);
+    
+    if (!toggle) {
+        console.error('Toggle element not found:', `toggle-${rowIndex}`);
+        showToast('Toggle-Element nicht gefunden', 'error');
+        return;
+    }
+    
+    // Toggle deaktivieren während der Anfrage
+    toggle.disabled = true;
+    
+    fetch(toggleStatusUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+            source_name: sourceName,
+            enabled: enabled
+        })
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP Fehler: ${response.status} ${response.statusText}`);
+        }
+        return response.text(); // Zuerst als Text lesen
+    })
+    .then(text => {
+        console.log('Raw response:', text);
+        try {
+            const data = JSON.parse(text);
+            console.log('Parsed response data:', data);
+            
+            if (data && data.success) {
+                // Kurze Erfolgsmeldung anzeigen
+                const message = data.message || 'Status erfolgreich geändert';
+                showToast(message, 'success');
+            } else {
+                // Bei Fehler Toggle zurücksetzen
+                toggle.checked = !enabled;
+                const errorMsg = (data && data.error) || 'Unbekannter Fehler beim Ändern des Status';
+                showToast(errorMsg, 'error');
+            }
+        } catch (parseError) {
+            console.error('JSON Parse Error:', parseError);
+            console.error('Response text was:', text);
+            toggle.checked = !enabled;
+            showToast('Fehler beim Verarbeiten der Server-Antwort', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Toggle error:', error);
+        // Bei Fehler Toggle zurücksetzen
+        toggle.checked = !enabled;
+        const errorMsg = error.message || 'Netzwerkfehler beim Ändern des Status';
+        showToast(errorMsg, 'error');
+    })
+    .finally(() => {
+        // Toggle wieder aktivieren
+        toggle.disabled = false;
+    });
+}
+
+// Toast-Notification Funktion
+function showToast(message, type = 'info') {
+    // Fallback für undefined/null message
+    if (!message || message === 'undefined' || message === undefined || message === null) {
+        console.warn('Empty or undefined message provided to showToast:', message);
+        message = 'Ein unbekannter Fehler ist aufgetreten';
+        type = 'error';
+    }
+    
+    // Sicherstellen, dass message ein String ist
+    message = String(message);
+    
+    console.log('Showing toast:', message, type);
+    
+    // Entfernen vorhandener Toasts
+    const existingToasts = document.querySelectorAll('.toast-notification');
+    existingToasts.forEach(toast => toast.remove());
+    
+    // Toast erstellen
+    const toast = document.createElement('div');
+    const alertType = type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info';
+    toast.className = `toast-notification alert alert-${alertType} alert-dismissible fade show`;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 300px;
+        max-width: 500px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        border-radius: 8px;
+    `;
+    
+    toast.innerHTML = `
+        <div class="d-flex align-items-start">
+            <div class="flex-grow-1">
+                ${message}
+            </div>
+            <button type="button" class="btn-close ms-2" onclick="this.closest('.toast-notification').remove()"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Auto-remove nach 4 Sekunden (etwas länger für bessere UX)
+    setTimeout(() => {
+        if (toast && toast.parentNode) {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 300);
+        }
+    }, 4000);
+}
+</script>
+{% endblock %}

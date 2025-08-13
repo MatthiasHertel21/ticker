@@ -1,13 +1,29 @@
 """
-Celery Tasks für Background-Verarbeitung
+Celery Tasks für Background-Verarbeitung mit Multi-Source-Support
 """
 
 from app.celery_app import celery_app
-from celery.schedules import crontab
+try:
+    from celery.schedules import crontab
+    CELERY_AVAILABLE = celery_app is not None
+except ImportError:
+    CELERY_AVAILABLE = False
+    crontab = None
+
 import os
 import logging
 from datetime import datetime
-from app.scrapers import sync_monitor_telegram_channels, TelethonChannelScraper
+try:
+    from app.scrapers import sync_monitor_telegram_channels
+except ImportError:
+    sync_monitor_telegram_channels = None
+
+try:
+    from app.scrapers.telethon_scraper import TelethonChannelScraper
+except ImportError:
+    TelethonChannelScraper = None
+
+from app.scrapers.source_manager import MultiSourceManager
 
 # Logging konfigurieren
 logging.basicConfig(level=logging.INFO)
@@ -80,6 +96,34 @@ def cleanup_old_articles_task():
         return {'error': str(e), 'status': 'error'}
 
 
+@celery_app.task(name='app.tasks.scraping_tasks.multi_source_scraping_task')
+def multi_source_scraping_task():
+    """Celery-Task für Multi-Source-Scraping aller konfigurierten Quellen"""
+    try:
+        logger.info("🚀 Starte Multi-Source-Scraping")
+        
+        # Multi-Source-Manager initialisieren
+        source_manager = MultiSourceManager()
+        
+        # Alle Quellen scrapen
+        results = source_manager.scrape_all_sources(max_workers=3)
+        
+        logger.info(f"📊 Multi-Source-Scraping abgeschlossen: "
+                   f"{results['new_articles']} neue Artikel, "
+                   f"{results['duplicates']} Duplikate, "
+                   f"{results['spam']} Spam")
+        
+        return {
+            'status': 'success',
+            'scraper': 'multi_source',
+            **results
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Fehler beim Multi-Source-Scraping: {e}")
+        return {'error': str(e), 'status': 'error', 'scraper': 'multi_source'}
+
+
 @celery_app.task(name='app.tasks.scraping_tasks.process_article_with_ai')
 def process_article_with_ai(article_id: str):
     """Celery-Task für KI-Verarbeitung von Artikeln (später implementiert)"""
@@ -107,13 +151,17 @@ def health_check():
 
 # Periodische Tasks konfigurieren
 celery_app.conf.beat_schedule = {
-    'monitor-telegram-channels': {
-        'task': 'app.tasks.scraping_tasks.monitor_telethon_task',  # Aktualisiert zu Telethon
-        'schedule': crontab(minute='*/30'),  # Alle 30 Minuten
+    'multi-source-scraping': {
+        'task': 'app.tasks.scraping_tasks.multi_source_scraping_task',
+        'schedule': crontab(minute='*/15'),  # Alle 15 Minuten Multi-Source-Scraping
+    },
+    'monitor-telegram-telethon': {
+        'task': 'app.tasks.scraping_tasks.monitor_telethon_task',
+        'schedule': crontab(minute='*/30'),  # Alle 30 Minuten Telethon (als Backup)
     },
     'monitor-telegram-bot-fallback': {
-        'task': 'app.tasks.scraping_tasks.monitor_telegram_task',  # Bot API als Backup
-        'schedule': crontab(minute='*/60'),  # Jede Stunde als Fallback
+        'task': 'app.tasks.scraping_tasks.monitor_telegram_task',
+        'schedule': crontab(minute='*/60'),  # Jede Stunde Bot API (Legacy-Fallback)
     },
     'cleanup-old-articles': {
         'task': 'app.tasks.scraping_tasks.cleanup_old_articles_task',

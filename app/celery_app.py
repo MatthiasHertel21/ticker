@@ -2,18 +2,28 @@
 Celery Application Configuration
 """
 
-from celery import Celery
+try:
+    from celery import Celery
+    CELERY_AVAILABLE = True
+except ImportError:
+    CELERY_AVAILABLE = False
+    Celery = None
+
 import os
 
 # Celery-App erstellen
-celery_app = Celery('ticker')
+if CELERY_AVAILABLE:
+    celery_app = Celery('ticker')
+else:
+    celery_app = None
 
 # Konfiguration
-celery_app.conf.update(
-    broker_url=os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0'),
-    result_backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0'),
-    task_serializer='json',
-    accept_content=['json'],
+if CELERY_AVAILABLE and celery_app:
+    celery_app.conf.update(
+        broker_url=os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0'),
+        result_backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0'),
+        task_serializer='json',
+        accept_content=['json'],
     result_serializer='json',
     timezone='UTC',
     enable_utc=True,

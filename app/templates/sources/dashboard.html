@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+
+{% block title %}Multi-Source Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>📡 Multi-Source Dashboard</h2>
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('sources.manage') }}" class="btn btn-primary">
+                        <i class="fas fa-cogs"></i> Verwalten
+                    </a>
+                    <a href="{{ url_for('sources.add_source') }}" class="btn btn-success">
+                        <i class="fas fa-plus"></i> Quelle hinzufügen
+                    </a>
+                    <button type="button" class="btn btn-info" onclick="testSources()">
+                        <i class="fas fa-vial"></i> Alle testen
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="manualScrape()">
+                        <i class="fas fa-sync"></i> Jetzt scrapen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistik-Übersicht -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Gesamt-Quellen</h5>
+                    <h2 class="card-text">{{ stats.total_sources }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Aktive Quellen</h5>
+                    <h2 class="card-text">{{ stats.active_sources }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Source-Typen</h5>
+                    <h2 class="card-text">
+                        {% set types = stats.sources | map(attribute='source_type') | unique | list %}
+                        {{ types | length }}
+                    </h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Letzte Aktualisierung</h5>
+                    <small class="card-text">
+                        {{ current_time.strftime('%H:%M') if current_time else 'Unbekannt' }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quellen-Übersicht -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 Konfigurierte Quellen</h5>
+                </div>
+                <div class="card-body">
+                    {% if stats.sources %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Typ</th>
+                                        <th>Status</th>
+                                        <th>Letzte Artikel</th>
+                                        <th>Letzter Scrape</th>
+                                        <th>Fehler</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for source in stats.sources %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ source.source_name }}</strong>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-secondary">
+                                                {{ source.source_type }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if source.enabled %}
+                                                <span class="badge badge-success">Aktiv</span>
+                                            {% else %}
+                                                <span class="badge badge-secondary">Inaktiv</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-info">
+                                                {{ source.last_article_count or 0 }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ source.last_scrape_time[:16] if source.last_scrape_time else 'Nie' }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {% if source.last_error %}
+                                                <span class="badge badge-danger" title="{{ source.last_error }}">
+                                                    Fehler
+                                                </span>
+                                            {% else %}
+                                                <span class="badge badge-success">OK</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                                        onclick="testSingleSource('{{ source.source_name }}')">
+                                                    <i class="fas fa-vial"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-info btn-sm" 
+                                                        onclick="viewSourceDetails('{{ source.source_name }}')">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <p class="text-muted">Keine Quellen konfiguriert.</p>
+                            <a href="{{ url_for('sources.add_source') }}" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Erste Quelle hinzufügen
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ergebnis-Modals -->
+    <div class="modal fade" id="resultModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Scraping-Ergebnis</h5>
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="resultContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function testSources() {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Teste...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/sources/test');
+        const data = await response.json();
+        
+        let html = '<h6>Test-Ergebnisse:</h6><ul class="list-group">';
+        
+        for (const [sourceName, result] of Object.entries(data.test_results)) {
+            const statusBadge = result.status === 'success' 
+                ? `<span class="badge badge-success">✅ OK</span>`
+                : `<span class="badge badge-danger">❌ Fehler</span>`;
+            
+            const details = result.status === 'success'
+                ? `${result.article_count} Artikel gefunden`
+                : result.error;
+            
+            html += `
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${sourceName}</strong> (${result.source_type})
+                        <br><small class="text-muted">${details}</small>
+                    </div>
+                    ${statusBadge}
+                </li>
+            `;
+        }
+        
+        html += '</ul>';
+        document.getElementById('resultContent').innerHTML = html;
+        $('#resultModal').modal('show');
+        
+    } catch (error) {
+        alert('Fehler beim Testen: ' + error.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+async function manualScrape() {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scrape...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/sources/scrape-now', {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            const results = data.results;
+            let html = `
+                <h6>Scraping-Ergebnisse:</h6>
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body text-center">
+                                <h5>${results.total_articles}</h5>
+                                <small>Gesamt-Artikel</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center">
+                                <h5>${results.new_articles}</h5>
+                                <small>Neue Artikel</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body text-center">
+                                <h5>${results.duplicates}</h5>
+                                <small>Duplikate</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-danger text-white">
+                            <div class="card-body text-center">
+                                <h5>${results.spam}</h5>
+                                <small>Spam</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            if (results.sources) {
+                html += '<h6>Details pro Quelle:</h6><ul class="list-group">';
+                
+                for (const [sourceName, sourceResult] of Object.entries(results.sources)) {
+                    const statusBadge = sourceResult.errors === 0
+                        ? `<span class="badge badge-success">✅ OK</span>`
+                        : `<span class="badge badge-danger">❌ ${sourceResult.errors} Fehler</span>`;
+                    
+                    html += `
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${sourceName}</strong> (${sourceResult.source_type})
+                                <br><small class="text-muted">${sourceResult.scraped_articles} Artikel gescrapt</small>
+                            </div>
+                            ${statusBadge}
+                        </li>
+                    `;
+                }
+                
+                html += '</ul>';
+            }
+            
+            document.getElementById('resultContent').innerHTML = html;
+            $('#resultModal').modal('show');
+            
+            // Seite nach 3 Sekunden neu laden für aktualisierte Daten
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+            
+        } else {
+            alert('Fehler beim Scraping: ' + data.error);
+        }
+        
+    } catch (error) {
+        alert('Fehler beim Scraping: ' + error.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// Auto-Refresh alle 30 Sekunden
+setInterval(() => {
+    window.location.reload();
+}, 30000);
+</script>
+{% endblock %}

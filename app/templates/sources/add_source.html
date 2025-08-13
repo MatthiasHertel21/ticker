@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}Quelle hinzufügen{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-plus"></i> Neue Quelle hinzufügen
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form id="addSourceForm" method="POST">
+                        <!-- Basis-Informationen -->
+                        <div class="form-group">
+                            <label for="name">Name der Quelle *</label>
+                            <input type="text" class="form-control" id="name" name="name" required
+                                   placeholder="z.B. Tagesschau RSS">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="type">Quellen-Typ *</label>
+                            <select class="form-control" id="type" name="type" required onchange="updateFormFields()">
+                                <option value="">-- Bitte wählen --</option>
+                                <option value="rss">RSS Feed</option>
+                                <option value="telegram">Telegram Channel</option>
+                                <option value="twitter">Twitter Account</option>
+                                <option value="web">Web-Scraping</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="enabled" name="enabled" value="true" checked>
+                                <label class="form-check-label" for="enabled">
+                                    Quelle aktivieren
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- RSS-spezifische Felder -->
+                        <div id="rss-fields" class="d-none">
+                            <hr>
+                            <h5>RSS-Konfiguration</h5>
+                            <div class="form-group">
+                                <label for="url">RSS Feed URL *</label>
+                                <input type="url" class="form-control" id="url" name="url"
+                                       placeholder="https://example.com/rss.xml">
+                            </div>
+                            <div class="form-row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="update_interval">Update-Intervall (Minuten)</label>
+                                        <input type="number" class="form-control" id="update_interval" name="update_interval" 
+                                               value="60" min="5" max="1440">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="max_articles">Max. Artikel pro Scrape</label>
+                                        <input type="number" class="form-control" id="max_articles" name="max_articles" 
+                                               value="10" min="1" max="50">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Telegram-spezifische Felder -->
+                        <div id="telegram-fields" class="d-none">
+                            <hr>
+                            <h5>Telegram-Konfiguration</h5>
+                            <div class="form-group">
+                                <label for="channel_username">Channel Username *</label>
+                                <input type="text" class="form-control" id="channel_username" name="channel_username"
+                                       placeholder="@channelname oder channelname">
+                                <small class="form-text text-muted">
+                                    Mit oder ohne @ am Anfang
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="max_messages">Max. Nachrichten pro Scrape</label>
+                                <input type="number" class="form-control" id="max_messages" name="max_messages" 
+                                       value="10" min="1" max="100">
+                            </div>
+                        </div>
+
+                        <!-- Twitter-spezifische Felder -->
+                        <div id="twitter-fields" class="d-none">
+                            <hr>
+                            <h5>Twitter-Konfiguration</h5>
+                            <div class="form-group">
+                                <label for="username">Twitter Username *</label>
+                                <input type="text" class="form-control" id="username" name="username"
+                                       placeholder="@username oder username">
+                                <small class="form-text text-muted">
+                                    Mit oder ohne @ am Anfang
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="max_tweets">Max. Tweets pro Scrape</label>
+                                <input type="number" class="form-control" id="max_tweets" name="max_tweets" 
+                                       value="10" min="1" max="50">
+                            </div>
+                        </div>
+
+                        <!-- Web-spezifische Felder -->
+                        <div id="web-fields" class="d-none">
+                            <hr>
+                            <h5>Web-Scraping-Konfiguration</h5>
+                            <div class="form-group">
+                                <label for="base_url">Website URL *</label>
+                                <input type="url" class="form-control" id="base_url" name="base_url"
+                                       placeholder="https://example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="article_selector">CSS-Selektor für Artikel</label>
+                                <input type="text" class="form-control" id="article_selector" name="article_selector"
+                                       placeholder="article, .news-item, .post">
+                                <small class="form-text text-muted">
+                                    CSS-Selektor für Artikel-Container
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="title_selector">CSS-Selektor für Titel</label>
+                                <input type="text" class="form-control" id="title_selector" name="title_selector"
+                                       placeholder="h1, h2, .title">
+                            </div>
+                        </div>
+
+                        <div class="form-group text-right">
+                            <a href="{{ url_for('sources.manage') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Zurück
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-plus"></i> Quelle hinzufügen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// URL-Parameter für Typ-Vorauswahl prüfen
+window.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const preselectedType = urlParams.get('type');
+    
+    if (preselectedType) {
+        const typeSelect = document.getElementById('type');
+        typeSelect.value = preselectedType;
+        updateFormFields();
+    }
+});
+
+function updateFormFields() {
+    const sourceType = document.getElementById('type').value;
+    
+    // Alle type-spezifischen Felder verstecken
+    document.getElementById('rss-fields').classList.add('d-none');
+    document.getElementById('telegram-fields').classList.add('d-none');
+    document.getElementById('twitter-fields').classList.add('d-none');
+    document.getElementById('web-fields').classList.add('d-none');
+    
+    // Entsprechende Felder anzeigen
+    if (sourceType) {
+        const fieldsDiv = document.getElementById(sourceType + '-fields');
+        if (fieldsDiv) {
+            fieldsDiv.classList.remove('d-none');
+        }
+    }
+}
+
+document.getElementById('addSourceForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Hinzufügen...';
+    submitBtn.disabled = true;
+    
+    try {
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData.entries());
+        
+        const response = await fetch('/sources/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('Quelle erfolgreich hinzugefügt!');
+            window.location.href = '{{ url_for("sources.manage") }}';
+        } else {
+            alert('Fehler: ' + result.error);
+        }
+        
+    } catch (error) {
+        alert('Fehler beim Hinzufügen: ' + error.message);
+    } finally {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+});
+</script>
+{% endblock %}

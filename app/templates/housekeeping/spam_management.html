@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}Spam-Verwaltung{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-shield-alt"></i> Spam-Verwaltung</h2>
+                <div>
+                    <a href="{{ url_for('housekeeping.dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Zurück
+                    </a>
+                    <button class="btn btn-danger" onclick="cleanupSpam()" id="cleanup-btn">
+                        <i class="fas fa-trash"></i> Alle Spam-Artikel löschen
+                    </button>
+                </div>
+            </div>
+
+            <!-- Spam-Statistiken -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ spam_stats.total_articles }}</h5>
+                            <p class="card-text text-muted">Gesamt Artikel</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center border-danger">
+                        <div class="card-body">
+                            <h5 class="card-title text-danger">{{ spam_stats.spam_articles }}</h5>
+                            <p class="card-text text-muted">Spam-Artikel</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center border-warning">
+                        <div class="card-body">
+                            <h5 class="card-title text-warning">{{ spam_stats.suspected_spam }}</h5>
+                            <p class="card-text text-muted">Verdächtige Artikel</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ "%.1f"|format(spam_stats.spam_percentage) }}%</h5>
+                            <p class="card-text text-muted">Spam-Rate</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <ul class="nav nav-tabs" id="spamTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="confirmed-spam-tab" data-bs-toggle="tab" data-bs-target="#confirmed-spam" type="button" role="tab">
+                        <i class="fas fa-ban text-danger"></i> Bestätigter Spam ({{ spam_stats.spam_articles }})
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="suspected-spam-tab" data-bs-toggle="tab" data-bs-target="#suspected-spam" type="button" role="tab">
+                        <i class="fas fa-question-circle text-warning"></i> Verdächtige Artikel ({{ spam_stats.suspected_spam }})
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content" id="spamTabsContent">
+                <!-- Bestätigter Spam -->
+                <div class="tab-pane fade show active" id="confirmed-spam" role="tabpanel">
+                    <div class="mt-3">
+                        {% if spam_articles %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Titel</th>
+                                            <th>Channel</th>
+                                            <th>Spam-Score</th>
+                                            <th>Gründe</th>
+                                            <th>Datum</th>
+                                            <th>Aktionen</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for article in spam_articles %}
+                                        <tr>
+                                            <td>
+                                                <div class="article-title" title="{{ article.title }}">
+                                                    {{ article.title[:80] }}{% if article.title|length > 80 %}...{% endif %}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-secondary">{{ article.channel }}</span>
+                                            </td>
+                                            <td>
+                                                {% set spam_score = article.get('spam_detection', {}).get('spam_score', 0) %}
+                                                <span class="badge bg-danger">{{ "%.2f"|format(spam_score) }}</span>
+                                            </td>
+                                            <td>
+                                                {% set reasons = article.get('spam_detection', {}).get('reasons', []) %}
+                                                {% for reason in reasons[:3] %}
+                                                    <small class="text-muted d-block">{{ reason }}</small>
+                                                {% endfor %}
+                                            </td>
+                                            <td>
+                                                <small class="text-muted">
+                                                    {{ article.created_at|format_datetime if article.created_at else 'Unbekannt' }}
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-success" onclick="unmarkSpam('{{ article.id }}')" 
+                                                        title="Nicht mehr als Spam markieren">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle"></i> Keine als Spam markierten Artikel gefunden.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Verdächtige Artikel -->
+                <div class="tab-pane fade" id="suspected-spam" role="tabpanel">
+                    <div class="mt-3">
+                        {% if suspected_spam %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Titel</th>
+                                            <th>Channel</th>
+                                            <th>Spam-Score</th>
+                                            <th>Gründe</th>
+                                            <th>Datum</th>
+                                            <th>Aktionen</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for article in suspected_spam %}
+                                        <tr>
+                                            <td>
+                                                <div class="article-title" title="{{ article.title }}">
+                                                    {{ article.title[:80] }}{% if article.title|length > 80 %}...{% endif %}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-secondary">{{ article.channel }}</span>
+                                            </td>
+                                            <td>
+                                                {% set spam_score = article.get('spam_detection', {}).get('spam_score', 0) %}
+                                                <span class="badge bg-warning">{{ "%.2f"|format(spam_score) }}</span>
+                                            </td>
+                                            <td>
+                                                {% set reasons = article.get('spam_detection', {}).get('reasons', []) %}
+                                                {% for reason in reasons[:3] %}
+                                                    <small class="text-muted d-block">{{ reason }}</small>
+                                                {% endfor %}
+                                            </td>
+                                            <td>
+                                                <small class="text-muted">
+                                                    {{ article.created_at|format_datetime if article.created_at else 'Unbekannt' }}
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-danger" onclick="markSpam('{{ article.id }}')" 
+                                                        title="Als Spam markieren">
+                                                    <i class="fas fa-ban"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> Keine verdächtigen Artikel gefunden.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function markSpam(articleId) {
+    if (!confirm('Artikel als Spam markieren?')) return;
+    
+    fetch(`/housekeeping/spam/mark/${articleId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ein Fehler ist aufgetreten');
+    });
+}
+
+function unmarkSpam(articleId) {
+    if (!confirm('Spam-Markierung entfernen?')) return;
+    
+    fetch(`/housekeeping/spam/unmark/${articleId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ein Fehler ist aufgetreten');
+    });
+}
+
+function cleanupSpam() {
+    if (!confirm('Alle Spam-Artikel endgültig löschen? Diese Aktion kann nicht rückgängig gemacht werden!')) return;
+    
+    document.getElementById('cleanup-btn').disabled = true;
+    
+    fetch('/housekeeping/spam/cleanup', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`${data.removed_count} Spam-Artikel erfolgreich entfernt`);
+            location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ein Fehler ist aufgetreten');
+    })
+    .finally(() => {
+        document.getElementById('cleanup-btn').disabled = false;
+    });
+}
+</script>
+{% endblock %}

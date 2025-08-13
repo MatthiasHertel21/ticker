@@ -15,7 +15,10 @@ import shutil
 class JSONManager:
     """Thread-sicherer JSON-Dateimanager"""
     
-    def __init__(self, data_dir: str = "/app/data"):
+    def __init__(self, data_dir: str = None):
+        if data_dir is None:
+            # Versuche DATA_DIR aus Environment zu laden, sonst verwende lokales data-Verzeichnis
+            data_dir = os.environ.get('DATA_DIR', os.path.join(os.getcwd(), 'data'))
         self.data_dir = data_dir
         self.locks = {}
         self._ensure_data_dir()

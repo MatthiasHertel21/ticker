@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - News Aggregator{% endblock %}
+
+{% block page_header %}
+<div class="d-flex justify-content-between align-items-center mb-4 py-3 bg-white sticky-top" style="top: 56px; z-index: 1020; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <div>
+        <h1 class="h2 mb-1">📊 Dashboard</h1>
+        <p class="text-muted mb-0">Übersicht deiner News-Aggregation</p>
+    </div>
+    <div>
+        <div class="btn-group" role="group">
+            <a href="/telegram" class="btn btn-primary">
+                <i class="bi bi-telegram me-1"></i>Telegram
+            </a>
+            <a href="/articles" class="btn btn-outline-primary">
+                <i class="bi bi-file-text me-1"></i>Artikel
+            </a>
+        </div>
+    </div>
+</div>
+<!-- Spacer for sticky header -->
+<div style="height: 20px;"></div>
+{% endblock %}
+
+{% block content %}
+<!-- Statistics Row -->
+<div class="row g-4 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number">{{ total_articles }}</div>
+            <div class="stat-label">Artikel gesamt</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number">{{ active_sources }}</div>
+            <div class="stat-label">Aktive Quellen</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number">{{ today_articles }}</div>
+            <div class="stat-label">Heute</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number">{{ tweets_count }}</div>
+            <div class="stat-label">Tweets</div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center py-4">
+                <i class="bi bi-telegram display-4 text-primary mb-3"></i>
+                <h5 class="card-title">Telegram Channels</h5>
+                <p class="card-text text-muted">Verwalte deine Telegram-Kanäle und überwache neue Nachrichten</p>
+                <a href="/telegram" class="btn btn-primary">
+                    <i class="bi bi-arrow-right me-1"></i>Zu Telegram
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center py-4">
+                <i class="bi bi-file-text display-4 text-success mb-3"></i>
+                <h5 class="card-title">Artikel Verwaltung</h5>
+                <p class="card-text text-muted">Durchsuche, filtere und verwalte alle gesammelten Artikel</p>
+                <a href="/articles" class="btn btn-success">
+                    <i class="bi bi-arrow-right me-1"></i>Zu Artikeln
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Letzte Aktivität</h5>
+    </div>
+    <div class="card-body">
+        {% if recent_articles %}
+            <div class="list-group list-group-flush">
+                {% for article in recent_articles %}
+                <div class="list-group-item d-flex justify-content-between align-items-start">
+                    <div class="ms-2 me-auto">
+                        <div class="fw-bold">{{ article.title }}</div>
+                        <small class="text-muted">{{ article.source }} - {{ article.created_at }}</small>
+                    </div>
+                    <span class="badge bg-primary rounded-pill">{{ article.content|length }} Zeichen</span>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-4">
+                <i class="bi bi-inbox display-4 text-muted mb-3"></i>
+                <p class="text-muted">Noch keine Artikel vorhanden</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    font-weight: 500;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+</style>
+{% endblock %}

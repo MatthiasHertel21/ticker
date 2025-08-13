@@ -47,6 +47,11 @@ class Config:
     AUTO_CLEANUP_MEDIA = os.environ.get('AUTO_CLEANUP_MEDIA', 'true').lower() == 'true'
     CLEANUP_SCHEDULE_CRON = os.environ.get('CLEANUP_SCHEDULE_CRON', '0 2 * * *')  # Daily at 2 AM
     
+    # Spam Detection Configuration
+    SPAM_DETECTION_ENABLED = os.environ.get('SPAM_DETECTION_ENABLED', 'true').lower() == 'true'
+    SPAM_THRESHOLD = float(os.environ.get('SPAM_THRESHOLD', '0.7'))  # 70% Spam-Wahrscheinlichkeit
+    SPAM_AUTO_MARK = os.environ.get('SPAM_AUTO_MARK', 'true').lower() == 'true'
+    
     # AI Configuration
     RELEVANCE_THRESHOLD = float(os.environ.get('RELEVANCE_THRESHOLD', '0.7'))
     SENTIMENT_ENABLED = os.environ.get('SENTIMENT_ENABLED', 'true').lower() == 'true'
